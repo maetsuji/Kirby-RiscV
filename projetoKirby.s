@@ -2,17 +2,35 @@
 
 MapaPos:	.half 0, 0
 
-AtaquePosX: 	.half 0
-AtaquePosY: 	.half 0
-OldAtaquePos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga e diferente da atual) 
+PlayerPosX: 	.half 0		# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
+PlayerPosY: 	.half 0		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
+OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual) 
+PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
+PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y, dividida por 100 para ser usada como pixels
+PlayerState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
 
-OffsetX:	.half 0
-OffsetY:	.half 0
-OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga e diferente da atual) 
+.eqv playerMaxSpX 200
+.eqv playerMaxFallSp 100
+.eqv playerMaxJumpSp -4
+.eqv playerAccX 100
+.eqv playerDeaccX 25
+.eqv playerJumpPow -600
 
-BGTileCodes:	.word 0
+.eqv GravityAcc 25
 
-LastKey: 	.word 10	# precisa comecar com um valor para ser comparado no KeyPress (so roda se a posicao antiga e diferente da atual) 
+OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal que modificam a posicao do mapa 
+OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
+OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
+
+BGTileCodes:	.word 0		# armazena 4 (bytes) codigos de tiles para que o tempBigBG seja montado no Limpar
+
+LastKey: 	.word 0		# valor da ultima tecla pressionada
+
+LastGlblTime:	.word 0		# valor completo da ecall 30, que sempre sera comparado e atualizado para contar os frames
+FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usado como outros contadores (1 seg = rem 50; 0.5 seg = rem 25; etc.)
+.eqv FPS 50
+
+endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
 .include "sprites/Ataque1.data"
 .include "sprites/playerCol.data"
@@ -45,35 +63,66 @@ LastKey: 	.word 10	# precisa comecar com um valor para ser comparado no KeyPress
 	jal PrintMapa		# imprime o mapa na inicializacao
 	
 	la a0,Ataque1
-	la a1,AtaquePosX
-	la a2,OldAtaquePos
+	la a1,PlayerPosX
+	la a2,OldPlayerPos
 	la a3,playerCol
 	jal Print		# imprime o jogador na inicializacao
+	
+	li a7,30
+	ecall
+	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock
 
 Main:
+	jal Clock
 	
 	jal KeyPress		# confere teclas apertadas, atualizando posicao do jogador e offset
 	
+	jal PlayerControls	# com base na ultima tecla apertada, salva em s10 pelo KeyPress, realiza as acoes de movimento do jogador
+	
+# toda funcao que muda posicao de personagens/objetos deve ser chamada antes de imprimi-los
+
 	jal PrintMapa		# imprime o mapa usando o offset
 
-	la a0,OldAtaquePos
-	la a1,AtaquePosX
+	la a0,OldPlayerPos
+	la a1,PlayerPosX
 	jal Limpar		# limpa posicao antiga do jogador
 	
 	la a0,Ataque1
-	la a1,AtaquePosX
-	la a2,OldAtaquePos
+	la a1,PlayerPosX
+	la a2,OldPlayerPos
 	la a3,playerCol
 	jal Print		#imprime o jogador em sua nova posicao
 
 	j Main
 
 #########################################################################################################################################
-
-EndGame:	# chamado no KeyPress ao apertar "p"
-	li a7,10
+Clock: 
+	li a7,30
+	ecall			# salva o novo valor do tempo global
+	mv s0,a0
+	
+	lw t0,LastGlblTime
+	sub t0,a0,t0		# subtrai o novo tempo global pelo ultimo valor salvo, para definir quantos milissegundos passaram desde o ultimo frame
+	
+	mv a0,t0
+	li a7,1
 	ecall
-
+	
+	la a0,endl
+	li a7,4
+	ecall			# imprime a diferenca de milissegundos (apenas por debug)
+	
+	li t1,20		# a cada 20 ms o frame avanca em 1, o que equivale a 50 fps
+	blt t0,t1,Clock		# enquanto nao avancar o frame o codigo fica nesse loop
+	sw s0,LastGlblTime,t0	# atualiza o novo valor de tempo global
+	
+	lw s1,FrameCount
+	addi s1,s1,1
+	sw s1,FrameCount,t0 	# avanca o contador de frames
+		
+FimClock:
+	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
+	
 #----------
 KeyPress:
 	li t0,0xFF200000		# carrega o endereco de controle do KDMMIO
@@ -81,52 +130,124 @@ KeyPress:
 	andi t2,t2,0x0001		# mascara o bit menos significativo
 	lw t1,4(t0)  			# le o valor da tecla
 	
-	bne t2,zero,ContinueMove	
+	bne t2,zero,ContinueKP	
 	mv t1,zero			# se nenhuma tecla esta sendo apertada salva 0 como a tecla atual
-ContinueMove:
+ContinueKP:
 
-	lw t0,LastKey
-	or t0,t0,t1
-	beq t0,zero,FimKeyPress		# se por 2 frames seguidos nenhuma tecla for apertada o KeyPress pode ser skipado (precisa passar uma vez sem nenhuma tecla para atualizar as variaveis de Old)
-
-	sw t1,LastKey,t0
-	mv s0,t1			# passa a tecla apertada para s0
-
-Move: 		
-	lhu t1,AtaquePosX
-	lhu t2,AtaquePosY
+	sw t1,LastKey,t0		# atualiza a ultima tecla pressionada
 	
-	mv t3,t2
-	slli t3,t3,16
-	add t3,t3,t1
-	sw t3,OldAtaquePos,t0		# atualiza OldAtaquePos
+specialKeys:
 
+	li t0,'p'
+  	beq t1,t0,EndGame
+  	
+  	ret
+  	
+#----------
+EndGame:
+	li a7,10
+	ecall				# metodo temporario de finalizacao do jogo
+
+#----------
+PlayerControls: 
+	addi sp,sp,-4
+	sw ra,0(sp)			# pilha armazena apenas valor de retorno
+			
+	lw s0,LastKey			# s0, valor da ultima tecla apertada
+	lhu s1,PlayerPosX		# s1, posicao X do jogador no mapa
+	lhu s2,PlayerPosY		# s2, posicao Y do jogador no mapa
+	
+	mv t0,s2
+	slli t0,t0,16
+	add t0,t0,s1
+	sw t0,OldPlayerPos,t1		# atualiza OldPlayerPos
+
+HorizontalMove:
+	lh s4,PlayerSpeedX		# s4, velocidade X do jogador em seu valor completo
+	li t1,playerDeaccX		# t1, velocidade de desaceleracao do jogador no eixo X 
+	li t2,playerAccX		# t2, velocidade de aceleracao do jogador no eixo X
+	li t3,playerMaxSpX		# t3, velocidade maxima do jogador no eixo X
+	
+SlowLeftToRight:
+	bgt s4,zero,SlowRightToLeft	# se velocidade for positiva ou 0 vai para o proximo slow
+	li t0,'a'
+	beq s0,t0,MoveLeft		# se velocidade for negativa e 'a' esta apertado nao ha porque desacelerar
+	beq s4,zero,SlowRightToLeft	# se velocidade for zero ainda precisa conferir se 'd' esta sendo apertado
+	
+	add s4,s4,t1
+	ble s4,zero,DoneHorizontalMv
+	mv s4,zero			# se a velocidade ficou positiva ao desacelerar precisa voltar para zero
+	j DoneHorizontalMv
+	
+SlowRightToLeft:
+	li t0,'d'
+	beq s0,t0,MoveRight		# se velocidade for positiva e 'd' esta apertado nao ha porque desacelerar
+	beq s4,zero,DoneHorizontalMv	# se a velocidade for zero nesse ponto nao ha porque desacelerar o jogador
+	
+	sub s4,s4,t1
+	bgt s4,zero,DoneHorizontalMv
+	mv s4,zero			# se a velocidade ficou negativa ao desacelerar precisa voltar para zero
+	j DoneHorizontalMv		
+	
+MoveLeft:
+	sub s4,s4,t2			# aumenta velocidade para a esquerda
+	
+	sub t0,zero,s4
+	ble t0,t3,DoneHorizontalMv
+	sub s4,zero,t3			# velocidade se torna a velocidade maxima caso tenha a ultrapassado
+	j DoneHorizontalMv
+	
+MoveRight:
+	add s4,s4,t2			# aumenta velocidade para a direita
+	
+	ble s4,t3,DoneHorizontalMv
+	mv s4,t3			# velocidade se torna a velocidade maxima caso tenha a ultrapassado
+	j DoneHorizontalMv
+	
+DoneHorizontalMv:
+	sh s4,PlayerSpeedX,t0		# armazena a velocidade X completa do jogador (em centenas)
+	li t0,100
+	div t1,s4,t0			# divide a velocidade por 100 para obter o numero de pixels a se mover
+	
+	add s1,s1,t1			# adiciona a velocidade horizontal em pixels para a posicao do jogador
+	
+VerticalMove:
+	lh s5,PlayerSpeedY		# s5, velocidade X do jogador em seu valor completo
+	lhu t1,PlayerState		# t1, variavel de estado do jogador
+	li t2,GravityAcc		# t2, velocidade de aceleracao da gravidade
+	li t3,playerMaxFallSp		# t3, velocidade maxima de queda do jogador
+	
 	li t0,'w'
-	addi s1,t1,0			# s1, posicao X do jogador no mapa
-	addi s2,t2,-1			# s2, posicao Y do jogador no mapa
-  	beq s0,t0,FimMove
-  	
-  	li t0,'a'
-  	addi s1,t1,-1
-	addi s2,t2,0
-  	beq s0,t0,FimMove
-  	
-  	li t0,'s'
-  	addi s1,t1,0
-	addi s2,t2,1
-  	beq s0,t0,FimMove
-  	
-  	li t0,'d'
-  	addi s1,t1,1
-	addi s2,t2,0
-  	beq s0,t0,FimMove
-  	
-  	li t0,'p'
-  	beq s0,t0,EndGame
-
-	mv s1,t1
-	mv s2,t2			# se nenhuma tecla especificada foi apertada mantem X e Y iguais 
+	beq s0,t0,MoveJump		
 	
+	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo (a posicao dessa linha no codigo determina es pulo no ar e possivel)
+	
+	blt s5,zero,DoneVerticalMv	# se ojogador estiver indo para cima o chao nao para ele (impede um snap que estava acontecendo)
+	mv s5,zero 		 	# se o jogador nao estiver no ar ou tiver pulado, esta no chao e sua velocidade Y se torna zero
+	j DoneVerticalMv
+
+MoveJump:
+	li s5,playerJumpPow
+	j DoneVerticalMv
+
+MoveFall:	# se estado for 0 entao o jogador esta caindo
+	add s5,s5,t2			# adiciona a gravidade a velocidade do jogador
+	ble s5,t3,DoneVerticalMv
+	mv s5,t3			# velocidade se torna a velocidade maxima caso tenha a ultrapassado
+	j DoneVerticalMv
+
+DoneVerticalMv:	
+	sh s5,PlayerSpeedY,t0		# armazena a velocidade Y completa do jogador (em centenas)
+	li t0,100
+	div t1,s5,t0			# divide a velocidade por 100 para obter o numero de pixels a se mover
+	
+	li t0,playerMaxJumpSp
+	bge t1,t0,DontLimitJump		# como o jogador nao pode se mover mais de 4 pixels por frame para as colisoes funcionarem, a vel do pulo fica limitada a -4
+	mv t1,t0
+DontLimitJump:
+	
+	add s2,s2,t1			# adiciona a velocidade vertical em pixels para a posicao do jogador
+
 FimMove:
 	mv t0,s11
 	slli t0,t0,16
@@ -159,57 +280,84 @@ PlayerColCheck:
 	li t1,320
 	mul t1,t1,t0	
 	
-	add s3,s3,t1			# define s3 inicialmente como o endereco para o primeiro pixel do jogador no frame 1 do bitmap
+	add s3,s3,t1			# s3, inicialmente como o endereco para o primeiro pixel do jogador no frame 1 do bitmap
 	
-PlayerFloor:
+SetupPlayerFloor:	
+	sh zero,PlayerState,t5		# determina que jogador esta no ar
+	
 	mv t0,s3
-	
 	li t1,4800 # 15 linhas do sprite x 320 pixels do bitmap
 	add t0,t0,t1 
-	
 	li t2,56 # verde
-
+	mv t3,zero
+	li t4,4				# contador de pixels a analisar
+PlayerFloor:
 	lbu t1,0(t0)
-	beq t1,t2,SnapUp		# analisa primeiro pixel da ultima linha do jogador
+	lbu t5,320(t0)
+	bne t5,t2,DontSetGroundSt	# analisa pixels 1, 6, 11 e 16 da primeira linha abaixo do jogador
+	li t6,1
+	sh t6,PlayerState,t5		# se algum dos pixels logo abaixo do jogador forem de chao ele passa a estar no estado "no chao"
+DontSetGroundSt:
+	bne t1,t2,DontSnapUp		# analisa pixels 1, 6, 11 e 16 da ultima linha do jogador
+	jal SnapUp
+	j PlayerFloor			# repete enquanto colisao acontece
+DontSnapUp:
+	addi t0,t0,5			# avanca 5 pixels na linha
+	addi t3,t3,1
+	blt t3,t4,PlayerFloor
 	
-	lbu t1,15(t0)
-	beq t1,t2,SnapUp		# analisa ultimo pixel da ultima linha do jogador
 	
-PlayerCeiling:
-
+SetupPlayerCeiling:
+	mv t0,s3
 	li t2,7 # vermelho
-	
-	lbu t1,0(s3)
-	beq t1,t2,SnapDown		# analisa primeiro pixel da primeira linha do jogador
-	
-	lbu t1,15(s3)
-	beq t1,t2,SnapDown		# analisa ultimo pixel da primeira linha do jogador
+	mv t3,zero
+	li t4,4				# contador de pixels a analisar
+PlayerCeiling:
+	lbu t1,0(t0)
+	bne t1,t2,DontSnapDown		# analisa primeiro pixel da primeira linha do jogador
+	jal SnapDown			
+	j PlayerCeiling			# repete enquanto colisao acontece
+DontSnapDown:
+	addi t0,t0,5			# avanca 5 pixels na linha
+	addi t3,t3,1
+	blt t3,t4,PlayerCeiling
 
-PlayerWall:
-	
+		
+SetupPlayerLWall:
+	mv t0,s3
 	li t2,192 # azul
-	
-	mv t0,s3 
-	addi t0,t0,320 # 1 linha do bitmap
-	
+	mv t3,zero
+	li t4,4				# contador de pixels a analisar
+PlayerLeftWall:
 	lbu t1,0(t0)
-	beq t1,t2,SnapRight		# analisa primeiro pixel da primeira linha do jogador
-	
+	bne t1,t2,DontSnapRight		# analisa primeiro pixel da primeira linha do jogador
+	jal SnapRight
+	j PlayerLeftWall		# repete enquanto colisao acontece
+DontSnapRight:
+	addi t0,t0,1600			# avanca 5 linhas no sprite
+	addi t3,t3,1
+	blt t3,t4,PlayerLeftWall
+
+
+SetupPlayerRWall:
+	mv t0,s3
+	li t2,192 # azul
+	mv t3,zero
+	li t4,4				# contador de pixels a analisar
+PlayerRightWall:
 	lbu t1,15(t0)
-	beq t1,t2,SnapLeft		# analisa ultimo pixel da primeira linha do jogador
+	bne t1,t2,DontSnapLeft		# analisa ultimo pixel da primeira linha do jogador
+	jal SnapLeft
+	j PlayerRightWall		# repete enquanto colisao acontece
+DontSnapLeft:
+	addi t0,t0,1600			# avanca 5 linhas no sprite
+	addi t3,t3,1
+	blt t3,t4,PlayerRightWall
 	
-	li t1,4160 # 13 linhas do sprite x 320 pixels do bitmap
-	add t0,t0,t1
-	
-	lbu t1,0(t0)
-	beq t1,t2,SnapRight		# analisa primeiro pixel da ultima linha do jogador
-	
-	lbu t1,15(t0)
-	beq t1,t2,SnapLeft		# analisa ultimo pixel da ultima linha do jogador
 	
 SuccessfulMove:
-	sh s1,AtaquePosX,t0		# armazena novo X do jogador
-	sh s2,AtaquePosY,t0		# armazena novo Y do jogador
+	sh s1,PlayerPosX,t0		# armazena novo X do jogador
+	sh s2,PlayerPosY,t0		# armazena novo Y do jogador
 	
 	##### definicao do offset:
 
@@ -225,6 +373,9 @@ FimChangeOffsetX:
 FimChangeOffsetY:
 	
 FimKeyPress:
+	lw ra,0(sp)
+	addi sp,sp,4			# recupera endereço de retorno da pilha
+
   	ret
   	
 
@@ -273,23 +424,28 @@ MaxOffsetY:
 	
 	j FimChangeOffsetY
 
-SnapUp:
+# s1, posição X original do sprite; s2, posição Y original do sprite; s3, endereço do pixel 0,0 do sprite no frame 1; t0, endereço do pixel de colisão sendo analisado no frame 1 
+SnapUp:		# sobe o jogador em uma linha, loopando ate nao estar mais em colisao
 	addi s2,s2,-1
 	addi s3,s3,-320
-	j PlayerFloor			# sobe o jogador em uma linha, loopando ate nao estar mais em colisao
-SnapDown:
-	addi s2,s2,1
+	addi t0,t0,-320
+	ret			
+SnapDown: 	# desce o jogador em uma linha, loopando ate nao estar mais em colisao
+	addi s2,s2,1	
 	addi s3,s3,320
-	j PlayerCeiling			# desce o jogador em uma linha, loopando ate nao estar mais em colisao
-SnapLeft:
+	addi t0,t0,320
+	ret		
+SnapLeft:	# move o jogador uma coluna para a esquerda, loopando ate nao estar mais em colisao
 	addi s1,s1,-1
 	addi s3,s3,-1
-	j PlayerWall			# move o jogador uma coluna para a esquerda, loopando ate nao estar mais em colisao
-SnapRight:
+	addi t0,t0,-1
+	ret		
+SnapRight:	# move o jogador uma coluna para a esquerda, loopando ate nao estar mais em colisao
 	addi s1,s1,1
 	addi s3,s3,1
-	j PlayerWall			# move o jogador uma coluna para a esquerda, loopando ate nao estar mais em colisao
-
+	addi t0,t0,1
+	ret
+	
 #----------
 Print: 		# a0 = sprite que vai ser impresso, a1 = endereco com a posicao do sprite, a2 = endereco com a posicao antiga do sprite, a3 = sprite de colisao
 	
