@@ -2,12 +2,17 @@
 
 MapaPos:	.half 0, 0
 
+OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal que modificam a posicao do mapa 
+OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
+OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
+
 PlayerPosX: 	.half 0		# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
 PlayerPosY: 	.half 0		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
 OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual) 
 PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
 PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y, dividida por 100 para ser usada como pixels
 PlayerState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
+PlayerTemp:	.half 0
 
 .eqv playerMaxSpX 200
 .eqv playerMaxFallSp 100
@@ -18,11 +23,7 @@ PlayerState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
 
 .eqv GravityAcc 25
 
-OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal que modificam a posicao do mapa 
-OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
-OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
-
-BGTileCodes:	.word 0		# armazena 4 (bytes) codigos de tiles para que o tempBigBG seja montado no Limpar
+BGTileCodes:	.word 0		# armazena 4 (bytes) codigos de tiles para que o fundo seja montado no Limpar
 
 LastKey: 	.word 0		# valor da ultima tecla pressionada
 
@@ -47,7 +48,6 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "sprites/blocoExempCol.data"
 .include "sprites/mapa40x30.data"
 .include "sprites/mapa30x30.data"
-.include "sprites/tempBigBG.data"
 
 .text
 	li t0,0xFF200604	# endereco que define qual frame esta sendo apresentado
@@ -529,7 +529,7 @@ FimPrint:
 	ret 
 
 #----------
-Limpar:		# a0 = endereco com a posicao que sera limpa; a1 = endereco com a posicao nova (apenas para comparacao)
+Limpar:		# a0 = endereco com a posicao que sera limpa; a1* = endereco com a posicao nova (apenas para comparacao)
 
 	lw t0,0(a0)
 	lw t1,0(a1)
@@ -567,172 +567,155 @@ Limpar:		# a0 = endereco com a posicao que sera limpa; a1 = endereco com a posic
 	slli t3,t3,16
 	add t4,t4,t3			# t4 = 0x00332211
 	
-	lbu t3,1(t0)			# valor do terceiro tile
+	lbu t3,1(t0)			# valor do quarto tile
 	slli t3,t3,24
 	add t4,t4,t3			# t4 = 0x44332211
 	
-	lw t0,BGTileCodes
-	beq t0,t4,FimBigBG		# se t4 tiver os mesmos codigos de tile que os armazenados skipa a definicao do BigBG
-	
 	la s4,BGTileCodes		# s4, endereco com todos os códigos de tile
-	sw t4,0(s4)			# atualiza os ultimos codigos de tile
+	sw t4,0(s4)			
 	mv s5,zero			# s5, contador de tiles
-LoopBigBG:
+LoopLimpar:
 
 	lbu s6,0(s4) 			# s6, código do tile atual
 
 	li t3,1				# analise dos codigos de tile
-	beq s6,t3,GetBigBGTile1
+	beq s6,t3,GetLimparTile1
 	li t3,2
-	beq s6,t3,GetBigBGTile2
+	beq s6,t3,GetLimparTile2
 	li t3,3
-	beq s6,t3,GetBigBGTile3
+	beq s6,t3,GetLimparTile3
 	li t3,4
-	beq s6,t3,GetBigBGTile4
+	beq s6,t3,GetLimparTile4
 	li t3,5
-	beq s6,t3,GetBigBGTile5
+	beq s6,t3,GetLimparTile5
 	li t3,6
-	beq s6,t3,GetBigBGTile6
+	beq s6,t3,GetLimparTile6
 	
-GetBigBGTile1:
+GetLimparTile1:
 	la a3,grama
-	j GotBigBGTile
-GetBigBGTile2:
+	la a5,emptyCol
+	j GotLimparTile
+GetLimparTile2:
 	la a3,chao
-	j GotBigBGTile
-GetBigBGTile3:
+	la a5,emptyCol
+	j GotLimparTile
+GetLimparTile3:
 	la a3,plataforma1
-	j GotBigBGTile
-GetBigBGTile4:
+	la a5,plataforma1Col
+	j GotLimparTile
+GetLimparTile4:
 	la a3,plataforma2
-	j GotBigBGTile
-GetBigBGTile5:
+	la a5,plataforma2Col
+	j GotLimparTile
+GetLimparTile5:
 	la a3,plataforma3
-	j GotBigBGTile
-GetBigBGTile6:
+	la a5,plataforma3Col
+	j GotLimparTile
+GetLimparTile6:
 	la a3,blocoExemp
-	j GotBigBGTile
+	la a5,blocoExempCol
+	j GotLimparTile
 
-GotBigBGTile:	# a3, sprite do tile que sera salvo no tempBigBG
+GotLimparTile:	# a3, sprite do tile que sera desenhado
+	
+	lhu t1,OffsetX
+	sub s7,a1,t1			# subtrai a posicao X original do sprite pelo offset X
+	lhu t2,OffsetY			
+	sub s8,a2,t2			# subtrai a posicao Y original do sprite pelo offset Y
+	
+	li t1,320
+	li t2,240
+	rem s7,s7,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial
+	rem s8,s8,t2			# tecnicamente desnecessario por causa do offset, mas mantido por garantia e para testes que mudam a posicao manualmente
 
-	mv t2,zero		# t2, contador de colunas
-	mv t3,zero		# t3, contador de linhas 
-	li t4,16		# t4, largura do tile
-	li t5,16		# t5, altura do tile
+	li a4,0xff000000
 	
-	addi a3,a3,8
-	la a4,tempBigBG
+	li t2,16
 	
-	addi a4,a4,8			# define a4 para salvar o primeiro tile do tempBigBG
-	beq s5,zero,SaveTileBigBG
-		 
-	addi a4,a4,16			# define a4 para salvar o segundo tile do tempBigBG
-	li t0,1
-	beq s5,t0,SaveTileBigBG
+	addi t1,a3,8
+	add t0,a4,s7 			# adiciona X ao endereco do bitmap
 	
-	addi a4,a4,496			# define a4 para salvar o terceiro tile do tempBigBG
-	li t0,2
-	beq s5,t0,SaveTileBigBG
-	
-	addi a4,a4,16			# define a4 para salvar o quarto tile do tempBigBG
-	li t0,3
-	beq s5,t0,SaveTileBigBG
+	li t6,1
+	beq s5,t6,RightColTile
+	li t6,3
+	beq s5,t6,RightColTile
+	# se for o primeiro ou terceiro tile:
+	add t1,t1,s0			# endereco do sprite precisa comecar adicionando o numero de pixels do offset X para a direita
+	sub t4,t2,s0			# largura dos tiles da esquerda igual a 16 - numero de pixels do offset X
+	j DoneColTilesSet
+RightColTile:
+	# se for o segundo ou quarto tile:
+	mv t4,s0			# largura dos tiles da direita igual ao numero de pixels do offset X
+	beq t4,zero,SkipTileLimpar 	# se os tiles da segunda coluna tiverem tamanho 0 eles podem ser skipados, porem o terceiro tile ainda precisa ser analisado
+	addi t0,t0,16
+	sub t0,t0,s0			# endereco do bitmap e passado 16 - numero de pixels do offset X para a direita
+DoneColTilesSet:
 
-SaveTileBigBG:
-
-	lw t6,0(a3) 			# guarda a word de pixels do tile
-	sw t6,0(a4) 			# salva no tempBigBG
-
-	addi a4,a4,4			# avanca o endereco do tempBigBG em 4
-	addi a3,a3,4 			# avanca o endereco da imagem em 4
+	li t2,16
+	li t3,320
 	
-	addi t2,t2,4 			# avanca o contador de colunas em 4
-	blt t2,t4,SaveTileBigBG 	# enquanto a linha nao estiver completa, continua desenhando ela
+	mul t6,t3,s8
+	add t0,t0,t6 			# adiciona Y ao endereco do bitmap -> t0, endereco do bitmap
 	
-	addi a4,a4,16 			# avanca para a proxima linha do tempBigBG
+	li t6,1
+	bgt s5,t6,BottomLineTile
+	# se for o primeiro ou segundo tile:
+	mul t6,t2,s2
+	add t1,t1,t6			# endereco do sprite precisa comecar adicionando o numero de linhas de pixels do offset Y para baixo
+	sub t5,t2,s2			# altura dos tiles da primeira linha igual a 16 - numero de pixels do offset Y
+	j DoneLineTilesSet
+BottomLineTile:
+	mv t5,s2			# altura dos tiles da segunda linha igual ao numero de pixels do offset Y
+	beq t5,zero,FimLimpar		# se algum dos tiles de baixo tiver tamanho 0, quer dizer que so a linha de cima precisou ser desenhada e que o Limpar pode terminar
+	sub t6,t2,s2
+	mul t6,t3,t6
+	add t0,t0,t6			# endereco do bitmap e passado 16 - numero de pixels do offset Y para baixo	
+DoneLineTilesSet:
+	
+	mv t2,zero			# t2, contador de colunas
+	mv t3,zero			# t3, contador de linhas
+			
+	li a6,0x100000 			# para o mapa de colisao
+
+SaveTileLimpar:
+
+	lbu t6,0(t1) 			# guarda um pixel do tile
+	sb t6,0(t0) 			# salva no bitmap
+
+	sub t1,t1,a3			# subtrai endereco do sprite base
+	add t1,t1,a5			# adiciona endereco do sprite de colisao para utilizar a mesma coordenada dentro do sprite
+	add t0,t0,a6	# nenhuma hitbox de colisao pode se sobrepor, no maximo pode acontecer se for em um ponto em que a tela sempre se mexe, ja que a impressao do mapa evitaria problemas
+
+	lbu t6,0(t1) 			# guarda um pixel do sprite de colisao
+	sb t6,0(t0)
+
+	sub t1,t1,a5			# subtrai endereco do sprite de colisao
+	add t1,t1,a3			# adiciona endereco do sprite base
+	sub t0,t0,a6			# subtrai 0x100000 ao endereco do bitmap para voltar ao frame 0
+
+	addi t0,t0,1			# avanca o endereco do bitmap em 1
+	addi t1,t1,1 			# avanca o endereco da imagem em 1		
+	
+	addi t2,t2,1 			# avanca o contador de colunas em 1
+	blt t2,t4,SaveTileLimpar 	# enquanto a linha nao estiver completa, continua desenhando ela
+	
+	addi t0,t0,320 			# avanca para a proxima linha do bitmap
+	sub t0,t0,t4			# subtrai a largura do tile
+	
+	addi t1,t1,16 			# avanca para a proxima linha do tile
+	sub t1,t1,t4			# subtrai a largura do tile
 
 	mv t2,zero 			# reseta o contador de colunas
 	addi t3,t3,1 			# avanca o contador de linhas em 1
-	blt t3,t5,SaveTileBigBG 	# enquanto o contador de linhas for menor que a altura repete a funcao
+	blt t3,t5,SaveTileLimpar 	# enquanto o contador de linhas for menor que a altura repete a funcao
 
+SkipTileLimpar:
 	addi s4,s4,1			# avanca para o proximo codigo de tile
 	addi s5,s5,1			# avanca o contador de tiles
 	
 	li t2,4
-	beq s5,t2,FimBigBG		# se ja foram todos os 4 tiles do tempBigBG segue com o Limpar
-	j LoopBigBG
-FimBigBG:
-
-	la a3,tempBigBG
-	addi a3,a3,8
-	
-	add a3,a3,s0			# adiciona os pixels de offset X no endereco de tempBigBG 
-	li t0,32
-	mul t0,t0,s2
-	add a3,a3,t0			# adiciona os pixels de offset Y no endereco de tempBigBG 
-	
-	lhu t2,OffsetX
-	sub t3,a1,t2			# subtrai a posicao X original do sprite pelo offset X
-	lhu t2,OffsetY			
-	sub t4,a2,t2			# subtrai a posicao Y original do sprite pelo offset Y
-	
-	li t1,320
-	li t2,240
-	rem t3,t3,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial
-	rem t4,t4,t2			# tecnicamente desnecessario por causa do offset, mas mantido por garantia e para testes que mudam a posicao manualmente
-	
-	li t0,0xff000000
-	
-	add t0,t0,t3 			# adiciona X ao endereco do bitmap
-	
-	mul t1,t1,t4
-	add t0,t0,t1 			# adiciona Y ao endereco do bitmap
-	
-	mv t1,a3			# t1, endereco do tempBigBG com offsets
-	
-	mv t2,zero			# t2, contador de colunas
-	mv t3,zero			# t3, contador de linhas
-	
-	li t4,16			# largura do sprite sempre e 16
-	li t5,16			# altura do sprite sempre e 16
-	
-	la a5,emptyCol			
-	li a6,0x100000 			# para o mapa de colisao
-	
-LinhaLimpar:
- 	lbu t6,0(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
-	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente)
-	lbu t6,1(t1) 			
-	sb t6,1(t0) 			
-	lbu t6,2(t1) 			
-	sb t6,2(t0) 			
-	lbu t6,3(t1) 			
-	sb t6,3(t0) 			
-
-	li t6,0xff			# sempre guarda branco no frame 1
-	add t0,t0,a6	# nenhuma hitbox de colisao pode se sobrepor, no maximo pode acontecer se for em um ponto em que a tela sempre se mexe, ja que a impressao do mapa evitaria problemas
-
-	sb t6,0(t0)			
-	sb t6,1(t0)		
-	sb t6,2(t0)		
-	sb t6,3(t0)			
-	
-	sub t0,t0,a6			# subtrai 0x100000 para voltar ao frame 0
-
-	addi t0,t0,4 			# avanca o endereco do bitmap display em 4
-	addi t1,t1,4 			# avanca o endereco da imagem em 4
-	
-	addi t3,t3,4 			# avanca o contador de colunas em 4
-	blt t3,t4,LinhaLimpar 		# enquanto a linha nao estiver completa, continua desenhando ela
-
-	addi t0,t0,320 			# avanca para a proxima linha do bitmap
-	sub t0,t0,t4 			# subtrai a largura do sprite
-	
-	addi t1,t1,16			# avanca o endereco do tempBigBG
-	
-	mv t3,zero 			# reseta o contador de colunas
-	addi t2,t2,1 			# avanca o contador de linhas em 1
-	blt t2,t5,LinhaLimpar 		# enquanto o contador de linhas for menor que a altura repete a funcao
+	beq s5,t2,FimLimpar		# se ja foram todos os 4 tiles segue com o Limpar
+	j LoopLimpar
 	
 FimLimpar:
 	ret 
