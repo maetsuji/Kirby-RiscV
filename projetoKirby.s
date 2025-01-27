@@ -3,7 +3,7 @@
 BitmapFrame:	.word 0xff000000
 
 MapaPos:	.half 0, 0
-MapaColAddress:	.word 0xff100000 # definido na inicialização para o endereco do arquivo mapaColisao ou manulamente definido como 0xff100000 para ser visível no frame 1
+MapaColAddress:	.word 0xff100000 # definido na inicializaï¿½ï¿½o para o endereco do arquivo mapaColisao ou manulamente definido como 0xff100000 para ser visï¿½vel no frame 1
 
 OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal que modificam a posicao do mapa 
 OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
@@ -433,7 +433,7 @@ FimChangeOffsetY:
 	
 FimKeyPress:
 	lw ra,0(sp)
-	addi sp,sp,4			# recupera endereço de retorno da pilha
+	addi sp,sp,4			# recupera endereï¿½o de retorno da pilha
 
   	ret
   	
@@ -444,7 +444,7 @@ ChangeOffsetX:
 	srli t0,t0,16			# tamanho X do mapa
 			
 	addi t0,t0,-168			# pixel mais a direita do mapa que muda o offset
-	bgt s1,t0,MaxOffsetX		# se o jogador estiver no fim da tela, o offset sempre sera o maior possível
+	bgt s1,t0,MaxOffsetX		# se o jogador estiver no fim da tela, o offset sempre sera o maior possï¿½vel
 
 	li t1,152				
 	sub t1,s1,t1			# offsetX = posicao real do jogador - 152
@@ -455,7 +455,7 @@ ChangeOffsetX:
 	
 MaxOffsetX:
 	li t1,152
-	sub t0,t0,t1			# em t0 esta o valor maximo de X que altera o offset, entao e só subtrair metade da tela e 8 pixels do sprite
+	sub t0,t0,t1			# em t0 esta o valor maximo de X que altera o offset, entao e sï¿½ subtrair metade da tela e 8 pixels do sprite
 	
 	sh t0,OffsetX,t2		# armazena novo offset X como o maior valor possivel 
 	
@@ -477,13 +477,13 @@ ChangeOffsetY:
 	
 MaxOffsetY:
 	li t1,112
-	sub t0,t0,t1			# em t0 esta o valor maximo de Y que altera o offset, entao e só subtrair metade da tela e 8 pixels do sprite
+	sub t0,t0,t1			# em t0 esta o valor maximo de Y que altera o offset, entao e sï¿½ subtrair metade da tela e 8 pixels do sprite
 	
 	sh t0,OffsetY,t2		# armazena novo offset Y como o maior valor possivel 
 	
 	j FimChangeOffsetY
 
-# s1, posição X original do sprite; s2, posição Y original do sprite; s3, endereço do pixel 0,0 do sprite no frame 1; t0, endereço do pixel de colisão sendo analisado no frame 1 
+# s1, posiï¿½ï¿½o X original do sprite; s2, posiï¿½ï¿½o Y original do sprite; s3, endereï¿½o do pixel 0,0 do sprite no frame 1; t0, endereï¿½o do pixel de colisï¿½o sendo analisado no frame 1 
 SnapUp:		# sobe o jogador em uma linha, loopando ate nao estar mais em colisao
 	addi s2,s2,-1
 	addi s3,s3,-320
@@ -745,7 +745,7 @@ GotPlayerSprite:
 
 FimPlayerAnimation:
 	lw ra,0(sp)
-	addi sp,sp,4			# recupera endereço de retorno da pilha
+	addi sp,sp,4			# recupera endereï¿½o de retorno da pilha
 
 	ret
 	
@@ -777,15 +777,15 @@ Print: 		# a0 = sprite que vai ser impresso, a1 = endereco com a posicao do spri
 	lhu s0,0(t0)
 	lhu s1,2(t0)			# salva posicao inicial do sprite	
 	
-	lh s2,8(a0)			# salva a distância X para iniciar a desenhar o sprite
-	lh s3,10(a0)			# salva a distância Y para iniciar a desenhar o sprite
+	lh s2,8(a0)			# salva a distï¿½ncia X para iniciar a desenhar o sprite
+	lh s3,10(a0)			# salva a distï¿½ncia Y para iniciar a desenhar o sprite
 	
 	lhu t0,OffsetX
 	sub t3,s0,t0			# subtrai o X do sprite pelo offset X
-	add t3,t3,s2			# adiciona a distância X para iniciar o sprite
+	add t3,t3,s2			# adiciona a distï¿½ncia X para iniciar o sprite
 	lhu t0,OffsetY			
 	sub t4,s1,t0			# subtrai o Y do sprite pelo offset Y
-	add t3,t3,s3			# adiciona a distância Y para iniciar o sprite
+	add t3,t3,s3			# adiciona a distï¿½ncia Y para iniciar o sprite
 	
 	li t1,320
 	li t2,240
@@ -878,7 +878,7 @@ Limpar:		# a0 = endereco com a posicao que sera limpa; a1* = endereco com a posi
 	lw t1,0(t0)			# t1, tamanho do mapa de tiles
 	mul t2,s3,t1			
 	
-	addi t0,t0,16
+	addi t0,t0,spriteHeader
 	add t0,t0,s1			# adiciona o numero de colunas de tiles
 	add t0,t0,t2			# adiciona o numero de linhas de tiles
 	
@@ -897,12 +897,12 @@ Limpar:		# a0 = endereco com a posicao que sera limpa; a1* = endereco com a posi
 	slli t3,t3,24
 	add t4,t4,t3			# t4 = 0x44332211
 	
-	la s4,BGTileCodes		# s4, endereco com todos os códigos de tile
+	la s4,BGTileCodes		# s4, endereco com todos os cï¿½digos de tile
 	sw t4,0(s4)			
 	mv s5,zero			# s5, contador de tiles
 LoopLimpar:
 
-	lbu s6,0(s4) 			# s6, código do tile atual
+	lbu s6,0(s4) 			# s6, cï¿½digo do tile atual
 
 	li t3,1				# analise dos codigos de tile
 	beq s6,t3,GetLimparTile1
@@ -1073,7 +1073,7 @@ PrintMapa:
 	
 LoopBuild:	# passa pelo mapa de tiles e usa ele para montar o mapa de pixels
 
-	beq s6,s9,FimPrintMapa	# continua o código quando todos os tiles forem analisados
+	beq s6,s9,FimPrintMapa	# continua o cï¿½digo quando todos os tiles forem analisados
 	
 	la a0,mapa40x30
 	
@@ -1087,7 +1087,7 @@ LoopBuild:	# passa pelo mapa de tiles e usa ele para montar o mapa de pixels
 	mul t0,t0,t1		# multiplica por 40 (tamanho das linhas do mapa completo)
 	add a0,a0,t0		
 	
-	addi a0,a0,16
+	addi a0,a0,spriteHeader
 	lbu t0,0(a0)		# armazena o valor do tile a ser salvo
 	
 	li t1,1			# analisa os codigos de tile
@@ -1153,7 +1153,7 @@ DoneLineOffset:
 	bne a2,zero,SaveTile		# se for uma coluna inicial ou final vai para SaveTile
 	bne a3,zero,SaveTile		# se for uma linha inicial ou final vai para SaveTile
 	
-	j SaveCenterTile		# tiles do meio são mais simples então podem ser salvos mais rapidamente
+	j SaveCenterTile		# tiles do meio sï¿½o mais simples entï¿½o podem ser salvos mais rapidamente
 FimSaveTile:
 	
 	addi s4,s4,1			# avanca contador de colunas de tiles
@@ -1161,7 +1161,7 @@ FimSaveTile:
 	bge s4,s7,NextLine		# se estiver no fim de uma linha vai para a proxima
 	j LoopBuild
 	
-NextLine:				# próxima linha de tiles
+NextLine:				# prï¿½xima linha de tiles
 	mv s4,zero		
 	addi s5,s5,1			# avanca contador de linhas
 	j LoopBuild
@@ -1174,7 +1174,7 @@ SaveTile: 	# a1 = sprite que vai ser salvo no mapa de pixels, a2 = offset das co
 	slli t1,t1,4			# multiplica numero da coluna por 16 (tamanho dos tiles)
 	blt a2,zero,FirstCol
 	# todas as colunas exceto a 1a:
-	sub t1,t1,s0			# resto do offset X subtraído do bitmap (puxa para a esquerda as colunas, se ocorrer na 1a = erro)
+	sub t1,t1,s0			# resto do offset X subtraï¿½do do bitmap (puxa para a esquerda as colunas, se ocorrer na 1a = erro)
 FirstCol:
 	
 	mv t2,s5
@@ -1184,7 +1184,7 @@ FirstCol:
 	blt a3,zero,FirstLine
 	# todas as linhas exceto a 1a:
 	mul t0,s2,t0
-	sub t2,t2,t0			# resto do offset Y vezes 320 subtraído do bitmap (sobe as linhas, se ocorrer na 1a = erro)
+	sub t2,t2,t0			# resto do offset Y vezes 320 subtraï¿½do do bitmap (sobe as linhas, se ocorrer na 1a = erro)
 FirstLine:
 	
 	lw a4,BitmapFrame
@@ -1197,18 +1197,18 @@ FirstLine:
 	mv t3,zero			# contador de linhas do tile	
 	
 	sub t4,s8,s0			
-	blt a2,zero,SetColSize		# na 1a coluna a largura do tile será 16-OffsetX
+	blt a2,zero,SetColSize		# na 1a coluna a largura do tile serï¿½ 16-OffsetX
 	mv t4,s0
-	bgt a2,zero,SetColSize		# na ultima coluna a largura do tile será OffsetX
-	lw t4,0(a1)			# nas outras colunas a largura do tile é 16
+	bgt a2,zero,SetColSize		# na ultima coluna a largura do tile serï¿½ OffsetX
+	lw t4,0(a1)			# nas outras colunas a largura do tile ï¿½ 16
 SetColSize:
 	beq t4,zero,FimSaveTile 	# se a ultima coluna nao estiver aparecendo, t4 = 0 e o tile pode ser skipado
 	
 	sub t5,s8,s2		
-	blt a3,zero,SetLineSize		# na 1a linha a altura do tile será 16-OffsetY
+	blt a3,zero,SetLineSize		# na 1a linha a altura do tile serï¿½ 16-OffsetY
 	mv t5,s2
-	bgt a3,zero,SetLineSize		# na 1a linha a altura do tile será OffsetY
-	lw t5,4(a1)			# nas outras linhas a altura do tile é 16
+	bgt a3,zero,SetLineSize		# na 1a linha a altura do tile serï¿½ OffsetY
+	lw t5,4(a1)			# nas outras linhas a altura do tile ï¿½ 16
 SetLineSize:
 	beq t5,zero,FimSaveTile 	# se a ultima linha nao estiver aparecendo, t5 = 0 e o tile pode ser skipado
 	
@@ -1231,7 +1231,7 @@ NotFirstCol:
 TileLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 
 	lbu t6,0(t1) 			# guarda um pixel do sprite
-	sb t6,0(t0) 			# desenha no bitmap display um pixel do sprite (já que tamanho das linhas pode variar de 1 a 16)
+	sb t6,0(t0) 			# desenha no bitmap display um pixel do sprite (jï¿½ que tamanho das linhas pode variar de 1 a 16)
 	
 	sub t1,t1,a1			# subtrai endereco do sprite base
 	add t1,t1,a5			# adiciona endereco do sprite de colisao para utilizar a mesma coordenada dentro do sprite
