@@ -11,20 +11,23 @@ OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMa
 
 PlayerPosX: 	.half 0		# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
 PlayerPosY: 	.half 0		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
-OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual) 
+OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual)  ## nao mais utilizado atualmente
 PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
 PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y, dividida por 100 para ser usada como pixels
-PlayerState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
+PlayerGndState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
+PlayerPowState:	.half 0		# 0 = vazio, 1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = cheio sem poder, 5 = inimigo 1 na boca, 6 = inimigo 2 na boca, 7 = cheio com poder 1, 8 = cheio com poder 2
 PlayerAnim:	.half 0
 PlayerOldAnim:	.half 0
-PlayerAnimCount:.half 0 
-PlayerMaxFrame: .word 0
+PlayerAnimCount:.half 0
+PlayerAnimDelay:.half 0
+PlayerMaxFrame: .word 0		# duracao do sprite atual em frames, se for 0 sera um sprite sem animacao
 PlayerSprite:	.word 0
 PlayerColSprite:.word 0
 PlayerLastFrame:.word 0
 
 .eqv playerMaxSpX 200
-.eqv playerMaxFallSp 100
+.eqv playerMaxQuickFallSp 200
+.eqv playerMaxSlowFallSp 100
 .eqv playerMaxJumpSp -4
 .eqv playerAccX 100
 .eqv playerDeaccX 10
@@ -49,6 +52,7 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
 .include "sprites/Ataque1.data"
 .include "sprites/playerCol.data"
+.include "sprites/playerBigCol.data"
 .include "sprites/chao.data"
 .include "sprites/grama.data"
 .include "sprites/emptyCol.data"
@@ -63,6 +67,7 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "sprites/mapa40x30.data"
 .include "sprites/mapa30x30.data"
 .include "kirby/kirbyMain.data" 
+.include "kirby/kirbyMain2.data"
 
 
 .text
@@ -114,9 +119,9 @@ Main:
 
 	jal PrintMapa		# imprime o mapa usando o offset
 
-	la a0,OldPlayerPos
-	la a1,PlayerPosX
-	jal Limpar		# limpa posicao antiga do jogador
+	#la a0,OldPlayerPos
+	#la a1,PlayerPosX
+	#jal Limpar		# limpa posicao antiga do jogador  ## removido, pois o PrintMapa serve como um Limpar geral e esta precisando ser chamado todo frame
 	
 	lw a0,PlayerSprite
 	la a1,PlayerPosX
@@ -267,11 +272,11 @@ DoneHorizontalMv:
 	
 VerticalMove:
 	lh s5,PlayerSpeedY		# s5, velocidade X do jogador em seu valor completo
-	lhu t1,PlayerState		# t1, variavel de estado do jogador
+	lhu t1,PlayerGndState		# t1, variavel de estado do jogador
 	li t2,gravityAcc		# t2, velocidade de aceleracao da gravidade
-	li t3,playerMaxFallSp		# t3, velocidade maxima de queda do jogador
+	li t3,playerMaxQuickFallSp	# t3, velocidade maxima de queda do jogador
 	
-	li t0,'w'
+	li t0,' '
 	beq s0,t0,MoveJump		
 	
 	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo (a posicao dessa linha no codigo determina es pulo no ar e possivel)
@@ -337,7 +342,7 @@ PlayerColCheck:
 	add s3,s3,t1			# s3, inicialmente como o endereco para o primeiro pixel do jogador no frame 1 do bitmap
 	
 SetupPlayerFloor:	
-	sh zero,PlayerState,t5		# determina que jogador esta no ar
+	sh zero,PlayerGndState,t5		# determina que jogador esta no ar
 	
 	mv t0,s3
 	li t1,4800 # 15 linhas do sprite x 320 pixels do bitmap
@@ -350,7 +355,7 @@ PlayerFloor:
 	lbu t5,320(t0)
 	bne t5,t2,DontSetGroundSt	# analisa pixels 1, 6, 11 e 16 da primeira linha abaixo do jogador
 	li t6,1
-	sh t6,PlayerState,t5		# se algum dos pixels logo abaixo do jogador forem de chao ele passa a estar no estado "no chao"
+	sh t6,PlayerGndState,t5		# se algum dos pixels logo abaixo do jogador forem de chao ele passa a estar no estado "no chao"
 DontSetGroundSt:
 	bne t1,t2,DontSnapUp		# analisa pixels 1, 6, 11 e 16 da ultima linha do jogador
 	jal SnapUp
@@ -514,7 +519,7 @@ PlayerAnimation:
 	li t1,'a'	
 	slt s0,t1,t0			# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1
 
-	lhu t0,PlayerState		# analisa se o jogador esta no chao ou no ar
+	lhu t0,PlayerGndState		# analisa se o jogador esta no chao ou no ar
 	beq t0,zero,DefineAnimVert
 	li t1,1
 	beq t0,t1,DefineAnimHorz
@@ -566,7 +571,7 @@ DefinedAnim:
 	
 	lw t0,PlayerSprite
 	lhu s1,PlayerAnimCount
-	lw s2,PlayerMaxFrame	# duracao do sprite atual em frames, se for 0 sera um sprite sem animacao
+	lhu s2,PlayerMaxFrame	# duracao do sprite atual em frames, se for 0 sera um sprite sem animacao
 
 	lhu s3,PlayerAnim
 	lhu t0,PlayerOldAnim
@@ -621,7 +626,7 @@ PlayerIdleLeft:
 	la s4,kirbyIdleL0
 	li s6,10
 	beq s1,t0,GotPlayerSprite
-	li t0,4
+	li t0,3
 	la s4,kirbyIdleL1
 	li s6,10
 	beq s1,t0,GotPlayerSprite
@@ -740,7 +745,7 @@ PlayerFallRight:
 GotPlayerSprite:
 	sh s1,PlayerAnimCount,t0
 	sw s4,PlayerSprite,t0	# armazena o endereco do novo sprite no PlayerSprite
-	sw s6,PlayerMaxFrame,t0  # armazena a duracao da animacao atual
+	sh s6,PlayerMaxFrame,t0  # armazena a duracao da animacao atual
 	sw s7,PlayerColSprite,t0  # armazena o sprite de colisao
 
 FimPlayerAnimation:
@@ -785,7 +790,7 @@ Print: 		# a0 = sprite que vai ser impresso, a1 = endereco com a posicao do spri
 	add t3,t3,s2			# adiciona a dist�ncia X para iniciar o sprite
 	lhu t0,OffsetY			
 	sub t4,s1,t0			# subtrai o Y do sprite pelo offset Y
-	add t3,t3,s3			# adiciona a dist�ncia Y para iniciar o sprite
+	add t4,t4,s3			# adiciona a dist�ncia Y para iniciar o sprite
 	
 	li t1,320
 	li t2,240
@@ -1051,9 +1056,9 @@ FimLimpar:
 #----------
 PrintMapa:
 	
-	lw t0,OffsetX
-	lw t1,OldOffset
-	beq t0,t1,FimPrintMapa		# se o offset nao mudou skipa o print do mapa ## retirado devido a troca de frame, que obriga o mapa ser desenhado toda vez
+	#w t0,OffsetX
+	#lw t1,OldOffset
+	#beq t0,t1,FimPrintMapa		# se o offset nao mudou skipa o print do mapa  ## retirado devido a troca de frame, que obriga o mapa ser desenhado todo frame
 
 	lhu t0,OffsetX
 	andi s0,t0,0xf		# s0, resto de offset X por 16
