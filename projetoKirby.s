@@ -3,7 +3,7 @@
 BitmapFrame:	.word 0xff000000
 
 MapaPos:	.half 0, 0
-MapaColAddress:	.word 0xff100000 # definido na inicializaï¿½ï¿½o para o endereco do arquivo mapaColisao ou manulamente definido como 0xff100000 para ser visï¿½vel no frame 1
+MapaColAddress:	.word 0xff100000 # definido na inicializacao para o endereco do arquivo mapaColisao ou manulamente definido como 0xff100000 para ser visivel no frame 1
 
 OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal que modificam a posicao do mapa 
 OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
@@ -15,7 +15,11 @@ OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Prin
 PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
 PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y, dividida por 100 para ser usada como pixels
 PlayerGndState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
-PlayerPowState:	.half 0		# 0 = vazio, 1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = inimigo 1 na boca, 5 = inimigo 2 na boca, 6 = cheio sem poder, 7 = cheio com poder 1, 8 = cheio com poder 2
+PlayerAnimState:.half 0		
+# 0 = vazio,  1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = inimigo 1 na boca, 5 = inimigo 2 na boca
+# 6 = transicao inicio eat, 7 = transicao cancelar eat, 8 = transicao engolir, 9 = transicao inflar, 10 = transicao soltar ar, 11 = transicao soltar item
+# 12 = cheio sem poder, 13 = cheio com poder 1, 14 = cheio com poder 2
+PlayerPowState:	.word 0
 PlayerAnim:	.half 0
 PlayerOldAnim:	.half 0
 PlayerAnimCount:.half 0
@@ -34,7 +38,7 @@ PlayerLastFrame:.word 0		# contador de frames para comparacao
 .eqv playerDeaccX 10
 .eqv playerFlyPow -450
 .eqv playerJumpPow -600
-.eqv PlayerFlyIndex 6
+.eqv PlayerFlyIndex 12
 
 .eqv gravityAcc 25
 
@@ -72,11 +76,12 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "sprites/mapa30x30.data"
 .include "kirby/kirbyMain.data" 
 .include "kirby/kirbyMain2.data"
+.include "kirby/kirbyPowers.data"
 
 
 .text
-	#la t0,mapaColisao
-	#sw t0,MapaColAddress,t1
+	la t0,mapaColisao
+	sw t0,MapaColAddress,t1
 	
 	li t0,0xff200604	# endereco que define qual frame esta sendo apresentado
 	li t1,1
@@ -103,6 +108,7 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 	la a2,OldPlayerPos
 	lw a3,PlayerColSprite
 	lw a4,PlayerLastDir
+	lw a5,PlayerPowState
 	jal Print		# imprime o jogador na inicializacao
 	
 	li a7,30
@@ -112,7 +118,7 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 Main:
 	jal Clock
 	
-	#jal ChangeFrame 	# incompleto
+	jal ChangeFrame 	# incompleto
 	
 	jal KeyPress		# confere teclas apertadas, atualizando posicao do jogador e offset
 	
@@ -133,6 +139,7 @@ Main:
 	la a2,OldPlayerPos
 	lw a3,PlayerColSprite
 	lw a4,PlayerLastDir
+	lw a5,PlayerPowState
 	jal Print		# imprime o jogador em sua nova posicao
 
 	j Main
@@ -147,6 +154,7 @@ Clock:
 	sub t0,a0,t0		# subtrai o novo tempo global pelo ultimo valor salvo, para definir quantos milissegundos passaram desde o ultimo frame
 	
 	#mv a0,t0
+	#lhu a0,PlayerAnimState
 	#li a7,1
 	#ecall
 	
@@ -163,6 +171,45 @@ Clock:
 	sw s1,FrameCount,t0 	# avanca o contador de frames
 		
 FimClock:
+
+	# debugs
+
+	lhu a0,PlayerAnimCount
+	li a7,1
+	#ecall
+	
+	la a0,endl
+	li a7,4
+	#ecall	
+
+	lhu a0,PlayerAnimTransit
+	li a7,1
+	#ecall
+	
+	la a0,endl
+	li a7,4
+	#ecall		
+
+	lhu a0,PlayerPowState
+	li a7,1
+	#ecall
+	
+	la a0,endl
+	li a7,4
+	#ecall			
+	
+	lhu a0,PlayerAnim
+	li a7,1
+	#ecall
+	
+	la a0,endl
+	li a7,4
+	#ecall		
+
+	la a0,endl
+	li a7,4
+	#ecall			
+
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
 	
 #----------
@@ -175,7 +222,7 @@ ChangeFrame:
 	sw s1,0(t0)		# para visualizar o frame que acabou de ser desenhado
 	
 	li t0,0x00100000
-	xor s0,s0,t0,
+	xor s0,s0,t0
 	sw s0,BitmapFrame,t0
 	
 	ret
@@ -190,30 +237,59 @@ KeyPress:
 	bne t2,zero,ContinueKP	
 	mv t1,zero			# se nenhuma tecla esta sendo apertada salva 0 como a tecla atual
 ContinueKP:
-
+	
 	sw t1,LastKey,t0		# atualiza a ultima tecla pressionada
 	
+	lw s0,PlayerLock
+	bne s0,zero,LockedPlayer
+
 	li t0,'d'
 	beq t0,t1,DirectionKey
 	li t0,'a'
 	beq t0,t1,DirectionKey
-	j specialKeys
+	j SpecialKeys
 DirectionKey:
 	li t0,'a'	
 	slt t2,t0,t1			# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1
 	sw t2,PlayerLastDir,t0		# serve para as animacoes
 
-specialKeys:
+LockedPlayer:
+SpecialKeys:
 
 	li t0,'p'
   	beq t1,t0,EndGame
   	
+  	li t0,'0'
+  	beq t1,t0,SetPower0
+  	
+  	li t0,'1'
+  	beq t1,t0,SetPower1
+  	
+  	li t0,'2'
+  	beq t1,t0,SetPower2
+
+FimKeyPress:  	
   	ret
   	
 #----------
 EndGame:
 	li a7,10
 	ecall				# metodo temporario de finalizacao do jogo
+
+#----------
+SetPower0:
+	sw zero,PlayerPowState,t1
+	j FimKeyPress
+
+SetPower1:
+	li t0,1
+	sw t0,PlayerPowState,t1
+	j FimKeyPress
+
+SetPower2:
+	li t0,2
+	sw t0,PlayerPowState,t1
+	j FimKeyPress
 
 #----------
 PlayerControls:  # s1, s2, s3, s4, s5
@@ -223,48 +299,100 @@ PlayerControls:  # s1, s2, s3, s4, s5
 	lw s0,LastKey			# s0, valor da ultima tecla apertada
 	lhu s1,PlayerPosX		# s1, posicao X do jogador no mapa
 	lhu s2,PlayerPosY		# s2, posicao Y do jogador no mapa
-	lhu s6,PlayerPowState		# s6, valor de estado do jogador: 0 = vazio, 1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = cheio sem poder, 5 = inimigo 1 na boca, 6 = inimigo 2 na boca, 7 = cheio com poder 1, 8 = cheio com poder 2
+	lhu s6,PlayerAnimState		# s6, valor de estado do jogador: 0 = vazio, 1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = cheio sem poder, 5 = inimigo 1 na boca, 6 = inimigo 2 na boca, 7 = cheio com poder 1, 8 = cheio com poder 2
 	mv s7,s6
+	lhu s8,PlayerAnimTransit
+	lw s9,PlayerLock
+	lw s10,PlayerPowState
 	
 	mv t0,s2
 	slli t0,t0,16
 	add t0,t0,s1
 	sw t0,OldPlayerPos,t1		# atualiza OldPlayerPos
 	
+	li t0,6
+	beq s6,t0,ContinueStartAttEat
+	
+	li t0,7
+	beq s6,t0,EndAttackEat
+	
+	li t0,10
+	beq s6,t0,EndAttackAir
+	
 	li t0,'e'
 	beq s0,t0,AttackCheck
 	
-	#li s7,0  # potencial de dar problema
+	li t0,1
+	beq s6,t0,KeepAttackEat
 	
 	j HorizontalMove
 	
 AttackCheck:
+	li t0,0
+	beq s6,t0,StartAttackEat
+
 	li t0,1
-	ble s6,t0,AttackEat
+	beq s6,t0,AttackEat
 	
 	li t0,PlayerFlyIndex
-	beq s6,t0,AttackAir
+	bge s6,t0,AttackAir
+	j DoneAttack
+	
+StartAttackEat:
+	li t0,1
+	sw t0,PlayerLock,t1
+	
+	li t0,1
+	beq s10,t0,AttackEat # se estiver com a habilidade de fogo nao precisa da animacao de StartAttack
+
+	li s8,10
+	sh s8,PlayerAnimTransit,t1
+	
+ContinueStartAttEat:
+	beq s8,zero,AttackEat
+
+	li s7,6
 	j DoneAttack
 	
 AttackEat:
-	li t0,1
-	beq s6,t0,DontStartEat
-
-	li t0,10
+	li t0,30
 	sh t0,PlayerAnimTransit,t1
-DontStartEat:
 
 	li s7,1
 	j DoneAttack
 	
-AttackAir:
-	li t0,0
-	beq s6,t0,DontStartEat
+KeepAttackEat:
+	li s7,1
+	bgt s8,zero,DoneAttack
 	
-	li t0,20
-	sh t0,PlayerAnimTransit,t1
-DontStartAttackAir:
+	li t0,1
+	beq s10,t0,EndAttFire # se estiver com a habilidade de fogo nao precisa da animacao de EndAttack
 
+	li s7,7
+	li t0,10
+	sh t0,PlayerAnimTransit,t1
+	j DoneAttack
+	
+EndAttackEat:
+	li s7,7
+	bgt s8,zero,DoneAttack
+EndAttFire:	
+	sw zero,PlayerLock,t1
+	
+	li s7,0
+	j DoneAttack
+	
+AttackAir:
+	li t0,30
+	sh t0,PlayerAnimTransit,t1
+
+	li s7,10
+	j DoneAttack
+
+EndAttackAir:
+	li s7,10
+	bgt s8,zero,DoneAttack
+	
 	li s7,0
 	j DoneAttack
 
@@ -279,9 +407,11 @@ HorizontalMove:
 	
 SlowLeftToRight:
 	bgt s4,zero,SlowRightToLeft	# se velocidade for positiva ou 0 vai para o proximo slow
+	bne s9,zero,LockedR
 	li t0,'a'
 	beq s0,t0,MoveLeft		# se velocidade for negativa e 'a' esta apertado nao ha porque desacelerar
 	beq s4,zero,SlowRightToLeft	# se velocidade for zero ainda precisa conferir se 'd' esta sendo apertado
+LockedR:  # mesmo quando travado precisa desacelerar
 	
 	add s4,s4,t1
 	ble s4,zero,DoneHorizontalMv
@@ -289,9 +419,11 @@ SlowLeftToRight:
 	j DoneHorizontalMv
 	
 SlowRightToLeft:
+	bne s9,zero,LockedL
 	li t0,'d'
 	beq s0,t0,MoveRight		# se velocidade for positiva e 'd' esta apertado nao ha porque desacelerar
 	beq s4,zero,DoneHorizontalMv	# se a velocidade for zero nesse ponto nao ha porque desacelerar o jogador
+LockedL:  # mesmo quando travado precisa desacelerar
 	
 	sub s4,s4,t1
 	bgt s4,zero,DoneHorizontalMv
@@ -331,28 +463,51 @@ VerticalMove:
 	li t3,playerMaxSlowFallSp
 NotFlying:
 	
+	bne zero,s9,LockedJump
+	
+	li t0,9
+	beq s6,t0,CheckStartFly
+BackCheckStFly:
+	
 	li t0,'w'
 	beq s0,t0,MoveFly
 	
 	li t0,' '			
 	beq s0,t0,MoveJump		# pulo unico
-	
+LockedJump:
+
 	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo
 	
 	blt s5,zero,DoneVerticalMv	# se o jogador estiver indo para cima o chao nao para ele (impede um snap que estava acontecendo)
 	mv s5,zero 		 	# se o jogador nao estiver no ar ou tiver pulado, entao esta no chao e sua velocidade Y se torna zero
 	j DoneVerticalMv
 	
+CheckStartFly:
+	li s7,PlayerFlyIndex 
+	beq s8,zero,BackCheckStFly  # se a animacao inflando ja acabou o sprite deve ser o de voo comum
+	
+	li s7,9
+	j BackCheckStFly
+	
 MoveFly:
+
 	li t0,PlayerFlyIndex
-	beq s6,t0,DontStartFly
+	bge s6,t0,BoostFly ## se ja estiver voando continua com a animacao de voo (salva no CheckStartFly)
+
+	li t0,9
+	bne s6,t0,StartMoveFly
+	# se estiver na animacao iniciando voo, ela ja foi definida para ser mantida no CheckStartFly
+
+	j BoostFly
+
+StartMoveFly:
+	li s7,9 # transicao inflar
 
 	li t0,20
 	sh t0,PlayerAnimTransit,t1
-DontStartFly:
+BoostFly:
 
 	li s5,playerFlyPow
-	li s7,PlayerFlyIndex
 	j DoneVerticalMv
 
 MoveJump:
@@ -372,7 +527,7 @@ MoveFall:	# se estado for 0 entao o jogador esta caindo
 
 DoneVerticalMv:	
 	sh s5,PlayerSpeedY,t0		# armazena a velocidade Y completa do jogador (em centenas)
-	sh s7,PlayerPowState,t0
+	sh s7,PlayerAnimState,t0
 	li t0,100
 	div t1,s5,t0			# divide a velocidade por 100 para obter o numero de pixels a se mover
 	
@@ -593,32 +748,84 @@ PlayerAnimation:
 	sw ra,0(sp)			# pilha armazena apenas valor de retorno
 
 	lw s0,PlayerLastDir		# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1
+
+	lhu t3,PlayerAnimTransit
 	
 	lhu t0,PlayerAnimTransit
 	beq t0,zero,SkipSubTransit
 	addi t0,t0,-1
 	sh t0,PlayerAnimTransit,t1
 SkipSubTransit:
-
-	lh s8,PlayerPowState
+	
+	lhu s8,PlayerAnimState
 	li t0,1
 	#beq s8,t0,DefPlayerEat  # TODO
+
+	
+	bgt t3,zero,DefTransition
 
 	lhu t0,PlayerGndState		# analisa se o jogador esta no chao ou no ar
 	beq t0,zero,DefineAnimVert
 	li t1,1
 	beq t0,t1,DefineAnimHorz
 	
-DefPlayerEat:
+DefTransition:
+	lhu s9,PlayerPowState
 	li t0,1
-	sw t0,PlayerLock,t1 # TODO
-	
+	beq s9,t0,DefFireAnim
+	li t0,2
+	beq s9,t0,DefIceAnim
+
+	li t0,1
+	li s1,11
+	beq s8,t0,DefinedAnim
+
+	li t0,6
 	li s1,10
+	beq s8,t0,DefinedAnim
+	
+	li t0,7
+	li s1,12
+	beq s8,t0,DefinedAnim
+	
+EndDefFireIce:
+	li t0,9
+	li s1,9 # DefStartFly
+	beq s8,t0,DefinedAnim
+	
+	li t0,10
+	li s1,13 # DefAttackAir
+	beq s8,t0,DefinedAnim
+	
+DefFireAnim:
+	li t0,1
+	li s1,14
+	beq s8,t0,DefinedAnim
+	
+	j EndDefFireIce
+	
+DefIceAnim:
+	li t0,6
+	li s1,15
+	beq s8,t0,DefinedAnim
+	
+	li t0,1
+	li s1,16
+	beq s8,t0,DefinedAnim
+	
+	li t0,7
+	li s1,17
+	beq s8,t0,DefinedAnim
+	
+	j EndDefFireIce
+	
+DefPlayerEat:	
+	li s1,11
 	j DefinedAnim
 
 DefineAnimHorz:
 	lh t0,PlayerSpeedX
-	lh t1,PlayerPowState
+	lh t1,PlayerAnimState
 	
 	li t2,4
 	bge t1,t2,DefBigKirbyHorz
@@ -648,27 +855,21 @@ DefPosSpeedX:
 	
 DefineAnimVert:
 	lh t0,PlayerSpeedY
-	lh t1,PlayerPowState
+	lh t1,PlayerAnimState
 	
 	li t2,4
 	bge t1,t2,DefAnimVertBig
 
 	li s1,3
-	ble t0,zero,DefinedAnim  # quick jump
+	blt t0,zero,DefinedAnim  # quick jump
 	li s1,4
 	j DefinedAnim  # quick fall
 DefAnimVertBig:
-	lw t3,PlayerAnimTransit
-	bgt t3,zero,DefStartFly
 
 	li s1,5
 	ble t0,zero,DefinedAnim  # slow jump
 	li s1,6
 	j DefinedAnim  # slow fall
-	
-DefStartFly:
-	li s1,9
-	j DefinedAnim
 
 DefinedAnim:
 	sh s1,PlayerAnim,t0
@@ -687,6 +888,15 @@ DefinedAnim:
 	# inicia uma nova animacao:
 	sw s5,PlayerLastFrame,t1
 	mv s1,zero	# define que o proximo sprite sera o sprite 0 (da animacao definida abaixo)
+	
+	li t1,4
+	bne t1,s3,MostAnimCases
+	# casos especiais para quando a nova animacao e da queda rapida:
+	li t1,3
+	beq t1,t0,MostAnimCases
+	li s1,3  # se a animacao de queda rapida nao estiver vindo de um pulo unico, o kirby nao faz a cambalhota
+	
+MostAnimCases:
 	sh s1,PlayerAnimCount,t1
 
 ContinueAnim:
@@ -719,7 +929,23 @@ ContinueAnim:
 	li t0,9
 	beq s3,t0,PlayerStartFly
 	li t0,10
+	beq s3,t0,PlayerStartEat
+	li t0,11
 	la s4,kirbyEat2
+	beq s3,t0,GotPlayerSprite
+	li t0,12
+	beq s3,t0,PlayerEndEat
+	li t0,13
+	beq s3,t0,PlayerAttackAir
+	li t0,14
+	beq s3,t0,PlayerFireAttack
+	li t0,15
+	la s4,kirbyIceAtt0
+	beq s3,t0,GotPlayerSprite
+	li t0,16
+	beq s3,t0,PlayerIceAttack
+	li t0,17
+	la s4,kirbyIceAtt0
 	beq s3,t0,GotPlayerSprite
 		
 PlayerIdle:
@@ -781,7 +1007,7 @@ PlayerQuickFall:
 	beq s1,t0,GotPlayerSprite
 	li t0,3
 	la s4,kirbyFall3
-	li s6,25
+	li s6,30
 	beq s1,t0,GotPlayerSprite
 	li t0,4
 	la s4,kirbyFall4
@@ -851,17 +1077,17 @@ PlayerStartEat:
 	la s7,playerHighCol
 	beq s1,t0,GotPlayerSprite
 
-PlayerCancelEat:
+PlayerEndEat:
 	jal CheckNextSprAnim
 	andi s1,s1,1
 	
-	la s4,kirbyEat1
-	li s6,5
-	beq s1,zero,GotPlayerSprite
-	li t0,1
 	la s4,kirbyEat2
 	li s6,5
 	la s7,playerHighCol
+	beq s1,zero,GotPlayerSprite
+	li t0,1
+	la s4,kirbyEat1
+	li s6,5
 	beq s1,t0,GotPlayerSprite
 	
 PlayerStartFly:
@@ -891,7 +1117,7 @@ PlayerAttackAir:
 	andi s1,s1,3
 	
 	la s4,kirbyEat3
-	li s6,5
+	li s6,15
 	la s7,playerBigCol
 	beq s1,zero,GotPlayerSprite
 	li t0,1
@@ -909,6 +1135,30 @@ PlayerAttackAir:
 	li s6,5
 	beq s1,t0,GotPlayerSprite
 
+PlayerFireAttack:
+	jal CheckNextSprAnim
+	andi s1,s1,1
+	
+	la s4,kirbyFireAtt0
+	li s6,3
+	beq s1,zero,GotPlayerSprite
+	li t0,1
+	la s4,kirbyFireAtt1
+	li s6,3
+	beq s1,t0,GotPlayerSprite
+
+PlayerIceAttack:
+	jal CheckNextSprAnim
+	andi s1,s1,1
+	
+	la s4,kirbyIceAtt1
+	li s6,3
+	beq s1,zero,GotPlayerSprite
+	li t0,1
+	la s4,kirbyIceAtt2
+	li s6,3
+	beq s1,t0,GotPlayerSprite
+
 PlayerSpitItem: # TODO
 
 
@@ -920,7 +1170,7 @@ GotPlayerSprite:
 
 FimPlayerAnimation:
 	lw ra,0(sp)
-	addi sp,sp,4			# recupera endereï¿½o de retorno da pilha
+	addi sp,sp,4			# recupera endereco de retorno da pilha
 
 	ret
 	
@@ -941,7 +1191,9 @@ keepSprAnim:
 	ret
 	
 #----------
-Print: 		# a0 = sprite que vai ser impresso, a1 = endereco com a posicao do sprite, a2 = endereco com a posicao antiga do sprite, a3 = sprite de colisao, a4 = 0 para esquerda ou 1 para direita
+Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do sprite; a2 = endereco com a posicao antiga do sprite; a3 = sprite de colisao; a4 = 0 para esquerda ou 1 para direita; a5 = 0, 1 ou 2 para o caso específico do jogador estar com poderes
+	addi sp,sp,-4
+	sw ra,0(sp)			# pilha armazena apenas valor de retorno
 	
 	#lw t0,0(a1)
 	#lw t1,0(a2)
@@ -986,16 +1238,22 @@ Print: 		# a0 = sprite que vai ser impresso, a1 = endereco com a posicao do spri
 		
 	lw a6,MapaColAddress		# a6, armazena endereco do mapa de colisao
 	
-	beq s4,zero,PreLinhaRev
+	li s5,199
 	
+	beq s4,zero,PreLinhaRev
+
 Linha: 		# t0 = endereco do bitmap display; t1 = endereco do sprite
 	lbu t6,0(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
+	jal CheckColors
 	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente)
 	lbu t6,1(t1) 			
+	jal CheckColors
 	sb t6,1(t0) 			
 	lbu t6,2(t1) 			
+	jal CheckColors
 	sb t6,2(t0) 			
 	lbu t6,3(t1) 			
+	jal CheckColors
 	sb t6,3(t0) 			
 	
 	sub t1,t1,a0			# subtrai endereco do sprite base
@@ -1004,14 +1262,19 @@ Linha: 		# t0 = endereco do bitmap display; t1 = endereco do sprite
 	add t0,t0,a6			# adiciona o endereco do mapa de colisao
 	
 	lbu t6,0(t1) 			# guarda a word de pixels do sprite de colisao
+	beq t6,s5,SkipL0
 	sb t6,0(t0)
-	lbu t6,1(t1) 			
+SkipL0:	lbu t6,1(t1) 
+	beq t6,s5,SkipL1			
 	sb t6,1(t0)
-	lbu t6,2(t1) 			
+SkipL1:	lbu t6,2(t1) 	
+	beq t6,s5,SkipL2		
 	sb t6,2(t0)
-	lbu t6,3(t1) 			
+SkipL2:	lbu t6,3(t1) 	
+	beq t6,s5,SkipL3		
 	sb t6,3(t0)
-	
+SkipL3:	
+
 	sub t1,t1,a3			# subtrai endereco do sprite de colisao
 	add t1,t1,a0			# adiciona endereco do sprite base
 	sub t0,t0,a6			# subtrai endereco do mapa de colisao
@@ -1037,12 +1300,16 @@ PreLinhaRev:
 
 LinhaReverse:
 	lbu t6,3(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
+	jal CheckColors
 	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente)
 	lbu t6,2(t1) 			
+	jal CheckColors
 	sb t6,1(t0) 			
 	lbu t6,1(t1) 			
+	jal CheckColors
 	sb t6,2(t0) 			
 	lbu t6,0(t1) 			
+	jal CheckColors
 	sb t6,3(t0) 			
 	
 	sub t1,t1,a0			# subtrai endereco do sprite base
@@ -1051,13 +1318,18 @@ LinhaReverse:
 	add t0,t0,a6			# adiciona o endereco do mapa de colisao
 	
 	lbu t6,3(t1) 			# guarda a word de pixels do sprite de colisao
+	beq t6,s5,SkipR0
 	sb t6,0(t0)
-	lbu t6,2(t1) 			
+SkipR0:	lbu t6,2(t1) 	
+	beq t6,s5,SkipR1		
 	sb t6,1(t0)
-	lbu t6,1(t1) 			
+SkipR1:	lbu t6,1(t1) 	
+	beq t6,s5,SkipR2		
 	sb t6,2(t0)
-	lbu t6,0(t1) 			
+SkipR2:	lbu t6,0(t1) 	
+	beq t6,s5,SkipR3		
 	sb t6,3(t0)
+SkipR3:
 	
 	sub t1,t1,a3			# subtrai endereco do sprite de colisao
 	add t1,t1,a0			# adiciona endereco do sprite base
@@ -1078,7 +1350,43 @@ LinhaReverse:
 	blt t2,t5,LinhaReverse 		# enquanto o contador de linhas for menor que a altura repete a funcao
 	j FimPrint
 
+	
+CheckColors:
+	beq a5,zero,EndCheckColors
+	li s6,2
+	beq a5,s6,IceColors
+	
+FireColors: # 0 -> 0; 159 -> 103; 239 -> 183
+	li s6,159
+	beq t6,s6,DarkFire
+	li s6,239
+	beq t6,s6,LightFire
+	j EndCheckColors
+DarkFire: li t6,103
+	j EndCheckColors
+LightFire: li t6,183
+	j EndCheckColors
+	
+IceColors: # 0 -> 129; 159 -> 235; 239 -> 255
+	beq t6,zero,BorderIce
+	li s6,159
+	beq t6,s6,DarkIce
+	li s6,239
+	beq t6,s6,LightIce
+	j EndCheckColors
+BorderIce: li t6,129
+	j EndCheckColors
+DarkIce: li t6,235
+	j EndCheckColors
+LightIce: li t6,255
+	j EndCheckColors
+EndCheckColors:
+	ret
+
 FimPrint:
+	lw ra,0(sp)
+	addi sp,sp,4			# recupera endereco de retorno da pilha
+
 	ret 
 
 #----------
