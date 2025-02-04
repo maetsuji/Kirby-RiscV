@@ -3,7 +3,6 @@
 BitmapFrame:	.word 0xff000000
 
 MapaPos:	.half 0, 0
-MapaColAddress:	.word 0xff100000 # definido na inicializacao para o endereco do arquivo mapaColisao ou manulamente definido como 0xff100000 para ser visivel no frame 1
 
 OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal que modificam a posicao do mapa 
 OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
@@ -12,6 +11,7 @@ OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMa
 PlayerPosX: 	.half 0		# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
 PlayerPosY: 	.half 0		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
 OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual)  ## nao mais utilizado atualmente
+TempPlayerPos:	.word 0
 PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
 PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y, dividida por 100 para ser usada como pixels
 PlayerGndState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
@@ -29,6 +29,7 @@ PlayerMaxFrame:	.word 0		# duracao do sprite atual em frames, se for 0 sera um s
 PlayerSprite:	.word 0		# endereco para o sprite atual
 PlayerColSprite:.word 0		# endereceo para o sprite atual de colisao
 PlayerLastFrame:.word 0		# contador de frames para comparacao
+PlayerObjDelay: .word 0
 
 .eqv playerMaxSpX 200
 .eqv playerMaxQuickFallSp 200
@@ -53,9 +54,14 @@ LastGlblTime:	.word 0		# valor completo da ecall 30, que sempre sera comparado e
 FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usado como outros contadores (1 seg = rem 50; 0.5 seg = rem 25; etc.)
 .eqv FPS 50
 
+ObjAtual:	.word 0
+ObjTempPos:	.word 0
+.eqv objQuant 7
+.eqv objSize 16
+
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
-.include "sprites/mapaColisao.data"
+.include "objects/objectsDB.data"
 
 .include "sprites/Ataque1.data"
 .include "sprites/playerCol.data"
@@ -78,10 +84,11 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "kirby/kirbyMain2.data"
 .include "kirby/kirbyPowers.data"
 
+.include "objects/objectsSprites.data"
+.include "collisionRender.data"
+
 
 .text
-	la t0,mapaColisao
-	sw t0,MapaColAddress,t1
 	
 	li t0,0xff200604	# endereco que define qual frame esta sendo apresentado
 	li t1,1
@@ -141,6 +148,8 @@ Main:
 	lw a4,PlayerLastDir
 	lw a5,PlayerPowState
 	jal Print		# imprime o jogador em sua nova posicao
+	
+	jal DrawObjects
 
 	j Main
 
@@ -212,6 +221,171 @@ FimClock:
 
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
 	
+#----------
+BuildObject: # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir)
+
+	addi sp,sp,-16
+	sw ra,0(sp)
+	sw s0,4(sp)
+	sw s1,8(sp)
+	sw s2,12(sp)
+
+	la s0,Obj0ID
+	mv s1,zero			# s1, contador de objetos geral
+	
+CheckBuildObjs:
+	lw s2,0(s0)
+	beq s2,zero,NewInstance
+	j BuildNextObj
+	
+BuildNextObj:
+	addi s1,s1,1
+	li t0,objQuant
+	beq s1,t0,FimBuildObject
+	beq a1,zero,FimBuildObject
+	
+	addi s0,s0,objSize
+	j CheckBuildObjs
+	
+NewInstance:
+	addi a1,a1,-1
+	
+	li t0,1
+	beq a0,t0,BuildDust
+	li t0,2
+	beq a0,t0,BuildFire
+	li t0,3
+	beq a0,t0,BuildIce
+	
+BuildDust:
+	# s0 tem o endereco inicial das variaveis do objeto
+	sw a0,0(s0) # id
+	
+	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
+	
+	sh a3,8(s0) # dir
+	
+	sh zero,10(s0) # movePat
+	
+	li t0,4
+	sh t0,12(s0) # lifeFrames
+	
+	sh zero,14(s0) # anim
+	
+	j BuildNextObj
+	
+BuildFire:
+BuildIce:
+	
+FimBuildObject:
+
+	lw ra,0(sp)
+	lw s0,4(sp)
+	lw s1,8(sp)
+	lw s2,12(sp)
+	addi sp,sp,16
+
+	ret
+	
+#----------
+
+DrawObjects: 
+	addi sp,sp,-4
+	sw ra,0(sp)
+
+	la s0,Obj0ID
+	mv s1,zero			# s1, contador de objetos geral
+	
+IterateDrawObjs:
+	lw s2,0(s0)
+	
+	#mv a0,s2
+	#li a7,1
+	#ecall
+	
+	#la a0,endl
+	#li a7,4
+	#ecall
+	
+	bne s2,zero,DrawObjAtual
+	
+DrawNextObj:
+	addi s1,s1,1
+	li t0,objQuant
+	beq s1,t0,FimDrawObjects
+	
+	addi s0,s0,objSize
+	j IterateDrawObjs
+
+DrawObjAtual:
+
+	lw s3,0(s0) # ID
+	lhu s4,4(s0) # PosX
+	lhu s5,6(s0) # PosY
+	lhu s6,8(s0) # Dir
+	lhu s7,10(s0) # MovePat
+	lhu s8,12(s0) # LifeFrames
+	lhu s9,14(s0) # Anim
+	
+	li t0,1
+	beq s3,t0,DrawDust
+
+	j DrawNextObj
+
+DrawDust:
+	
+	li t0,20
+	beq s6,zero,DustBreakRtoL
+	li t0,-4
+DustBreakRtoL:
+	add s4,s4,t0 # define em qual lado do kirby vai aparecer
+	
+	slli t0,s5,16
+	add t0,t0,s4
+	sw t0,ObjTempPos,t1
+	la a1,ObjTempPos ### TODO revisar
+	mv a2,a1 # OldPos, inutil atualmente
+	
+	la a3,emptyCol
+	mv a4,s6
+	mv a5,zero
+	
+	la a0,dust0
+	li t0,2
+	bgt s8,t0,DrawObjReady
+	la a0,dust1
+	j DrawObjReady
+	
+	
+	
+DrawObjReady:
+	jal Print
+	
+	mv a0,s3
+	li a7,1
+	ecall
+
+	la a0,endl
+	li a7,4
+	ecall
+	
+	addi s8,s8,-1
+	sh s8,12(s0)
+	bne s8,zero,DrawNextObj
+	sw zero,0(s0)	# define ID do objeto como 0 se tempo de vida dele acabar
+	
+	j DrawNextObj
+
+FimDrawObjects:
+	lw ra,0(sp)
+	addi sp,sp,4 # conferir
+	
+	la a0,endl
+	li a7,4
+	ecall
+
+	ret
+
 #----------
 ChangeFrame:
 	lw s0,BitmapFrame
@@ -292,7 +466,7 @@ SetPower2:
 	j FimKeyPress
 
 #----------
-PlayerControls:  # s1, s2, s3, s4, s5
+PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	addi sp,sp,-4
 	sw ra,0(sp)			# pilha armazena apenas valor de retorno
 			
@@ -557,34 +731,42 @@ FimMove:
 	blt s2,zero,FimPlayerControls
 	bgt s2,t0,FimPlayerControls		# analisa se passou das bordas de cima e de baixo
 	
+	slli t0,s2,16
+	add t0,t0,s1
+	sw t0,TempPlayerPos,t1
+	
 	j PlayerColCheck
 	
 PlayerColCheck:
-	lw s3,MapaColAddress
+
+	la a0,TempPlayerPos
+	jal CollisionUpdate
+
+	la s3,collisionRender
 	
-	lhu t0,OffsetX
-	sub t1,s1,t0			# subtrai X do jogador pelo offset X
-	add s3,s3,t1
+	mv t0,s1
+	andi t0,t0,0xf
+	add s3,s3,t0			# adiciona o resto do offset X por 16
 	
-	lhu t0,OffsetY
-	sub t0,s2,t0			# subtrai Y do jogador pelo offset Y
-	li t1,320
-	mul t1,t1,t0	
+	mv t0,s2
+	andi t0,t0,0xf
+	li t1,32
+	mul t0,t0,t1			# adiciona as linhas com base no resto do offset Y por 16
 	
-	add s3,s3,t1			# s3, inicialmente como o endereco para o primeiro pixel do jogador no frame 1 do bitmap
+	add s3,s3,t0			# s3, inicialmente como o endereco para o primeiro pixel do jogador no mapa de colisoes renderizado
 	
 SetupPlayerFloor:	
-	sh zero,PlayerGndState,t5		# determina que jogador esta no ar
+	sh zero,PlayerGndState,t5	# determina que jogador esta no ar
 	
 	mv t0,s3
-	li t1,4800 # 15 linhas do sprite x 320 pixels do bitmap
+	li t1,480 # 15 linhas do sprite x 32 pixels da renderizacao da colisao
 	add t0,t0,t1 
 	li t2,56 # verde
 	mv t3,zero
 	li t4,4				# contador de pixels a analisar
 PlayerFloor:
 	lbu t1,0(t0)
-	lbu t5,320(t0)
+	lbu t5,32(t0)
 	bne t5,t2,DontSetGroundSt	# analisa pixels 1, 6, 11 e 16 da primeira linha abaixo do jogador
 	li t6,1
 	sh t6,PlayerGndState,t5		# se algum dos pixels logo abaixo do jogador forem de chao ele passa a estar no estado "no chao"
@@ -626,7 +808,7 @@ PlayerLeftWall:
 	jal SnapRight
 	j PlayerLeftWall		# repete enquanto colisao acontece
 DontSnapRight:
-	addi t0,t0,1600			# avanca 5 linhas no sprite
+	addi t0,t0,160			# avanca 5 linhas no mapa de colisao
 	addi t3,t3,1
 	blt t3,t4,PlayerLeftWall
 
@@ -642,7 +824,7 @@ PlayerRightWall:
 	jal SnapLeft
 	j PlayerRightWall		# repete enquanto colisao acontece
 DontSnapLeft:
-	addi t0,t0,1600			# avanca 5 linhas no sprite
+	addi t0,t0,160			# avanca 5 linhas no mapa de colisao
 	addi t3,t3,1
 	blt t3,t4,PlayerRightWall
 	
@@ -670,7 +852,7 @@ FimChangeOffsetY:
 	
 FimPlayerControls:
 	lw ra,0(sp)
-	addi sp,sp,4			# recupera endereï¿½o de retorno da pilha
+	addi sp,sp,4			# recupera endereco de retorno da pilha
 
   	ret
   	
@@ -714,22 +896,22 @@ ChangeOffsetY:
 	
 MaxOffsetY:
 	li t1,112
-	sub t0,t0,t1			# em t0 esta o valor maximo de Y que altera o offset, entao e sï¿½ subtrair metade da tela e 8 pixels do sprite
+	sub t0,t0,t1			# em t0 esta o valor maximo de Y que altera o offset, entao e so subtrair metade da tela e 8 pixels do sprite
 	
 	sh t0,OffsetY,t2		# armazena novo offset Y como o maior valor possivel 
 	
 	j FimChangeOffsetY
 
-# s1, posiï¿½ï¿½o X original do sprite; s2, posiï¿½ï¿½o Y original do sprite; s3, endereï¿½o do pixel 0,0 do sprite no frame 1; t0, endereï¿½o do pixel de colisï¿½o sendo analisado no frame 1 
+# s1, posicao X original do sprite; s2, posicao Y original do sprite; s3, endereco do pixel 0,0 do sprite no frame 1; t0, endereco do pixel de colisao sendo analisado no frame 1 
 SnapUp:		# sobe o jogador em uma linha, loopando ate nao estar mais em colisao
 	addi s2,s2,-1
-	addi s3,s3,-320
-	addi t0,t0,-320
+	addi s3,s3,-32
+	addi t0,t0,-32
 	ret			
 SnapDown: 	# desce o jogador em uma linha, loopando ate nao estar mais em colisao
 	addi s2,s2,1	
-	addi s3,s3,320
-	addi t0,t0,320
+	addi s3,s3,32
+	addi t0,t0,32
 	ret		
 SnapLeft:	# move o jogador uma coluna para a esquerda, loopando ate nao estar mais em colisao
 	addi s1,s1,-1
@@ -751,16 +933,20 @@ PlayerAnimation:
 
 	lhu t3,PlayerAnimTransit
 	
-	lhu t0,PlayerAnimTransit
+	mv t0,t3
 	beq t0,zero,SkipSubTransit
 	addi t0,t0,-1
 	sh t0,PlayerAnimTransit,t1
 SkipSubTransit:
+
+	lw t0,PlayerObjDelay ### TODO temporario?
+	beq t0,zero,SkipSubDelay
+	addi t0,t0,-1
+	sw t0,PlayerObjDelay,t1
+SkipSubDelay:
 	
 	lhu s8,PlayerAnimState
-	li t0,1
-	#beq s8,t0,DefPlayerEat  # TODO
-
+	
 	
 	bgt t3,zero,DefTransition
 
@@ -911,7 +1097,7 @@ ContinueAnim:
 	beq s3,t0,PlayerWalk
 	li t0,2
 	la s4,kirbyBreak		# animacoes que tem apenas 1 frame nao precisam checar mudanca de frame
-	beq s3,t0,GotPlayerSprite
+	beq s3,t0,PlayerBreak		# no caso do break ha a animacao de poeira
 	li t0,3
 	la s4,kirbyJump
 	beq s3,t0,GotPlayerSprite
@@ -987,6 +1173,22 @@ PlayerWalk:
 	la s4,kirbyWalk3
 	li s6,10
 	beq s1,t0,GotPlayerSprite
+	
+PlayerBreak:
+	lw t0,PlayerObjDelay
+	bgt t0,zero,GotPlayerSprite
+	
+	li t0,4
+	sw t0,PlayerObjDelay,t1
+
+	li a0,1 # id do objeto (poeira)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	
+	jal BuildObject
+	
+	j GotPlayerSprite
 	
 PlayerQuickFall:
 	jal CheckNextSprAnim
@@ -1191,9 +1393,19 @@ keepSprAnim:
 	ret
 	
 #----------
-Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do sprite; a2 = endereco com a posicao antiga do sprite; a3 = sprite de colisao; a4 = 0 para esquerda ou 1 para direita; a5 = 0, 1 ou 2 para o caso específico do jogador estar com poderes
-	addi sp,sp,-4
-	sw ra,0(sp)			# pilha armazena apenas valor de retorno
+Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do sprite; a2 = endereco com a posicao antiga do sprite; 
+		# a3 = sprite de colisao; a4 = 0 para esquerda ou 1 para direita; a5 = 0, 1 ou 2 para o caso especï¿½fico do jogador estar com poderes
+	# s0, s1, s2, s3, s4, s5, s6 
+	
+	addi sp,sp,-32
+	sw ra,0(sp)
+	sw s0,4(sp)
+	sw s1,8(sp)
+	sw s2,12(sp)
+	sw s3,16(sp)
+	sw s4,20(sp)
+	sw s5,24(sp)
+	sw s6,28(sp)
 	
 	#lw t0,0(a1)
 	#lw t1,0(a2)
@@ -1235,10 +1447,6 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do spri
 	
 	lw t4,0(a0) 			# guarda a largura do sprite
 	lw t5,4(a0) 			# guarda a altura do sprite
-		
-	lw a6,MapaColAddress		# a6, armazena endereco do mapa de colisao
-	
-	li s5,199
 	
 	beq s4,zero,PreLinhaRev
 
@@ -1255,30 +1463,6 @@ Linha: 		# t0 = endereco do bitmap display; t1 = endereco do sprite
 	lbu t6,3(t1) 			
 	jal CheckColors
 	sb t6,3(t0) 			
-	
-	sub t1,t1,a0			# subtrai endereco do sprite base
-	add t1,t1,a3			# adiciona endereco do sprite de colisao para utilizar a mesma coordenada dentro do sprite
-	sub t0,t0,a4			# subtrai o endereco do frame atual do bitmap
-	add t0,t0,a6			# adiciona o endereco do mapa de colisao
-	
-	lbu t6,0(t1) 			# guarda a word de pixels do sprite de colisao
-	beq t6,s5,SkipL0
-	sb t6,0(t0)
-SkipL0:	lbu t6,1(t1) 
-	beq t6,s5,SkipL1			
-	sb t6,1(t0)
-SkipL1:	lbu t6,2(t1) 	
-	beq t6,s5,SkipL2		
-	sb t6,2(t0)
-SkipL2:	lbu t6,3(t1) 	
-	beq t6,s5,SkipL3		
-	sb t6,3(t0)
-SkipL3:	
-
-	sub t1,t1,a3			# subtrai endereco do sprite de colisao
-	add t1,t1,a0			# adiciona endereco do sprite base
-	sub t0,t0,a6			# subtrai endereco do mapa de colisao
-	add t0,t0,a4			# adiciona endereco do frame atual do bitmap
 
 	addi t0,t0,4 			# avanca o endereco do bitmap display em 4
 	addi t1,t1,4 			# avanca o endereco da imagem em 4
@@ -1310,31 +1494,7 @@ LinhaReverse:
 	sb t6,2(t0) 			
 	lbu t6,0(t1) 			
 	jal CheckColors
-	sb t6,3(t0) 			
-	
-	sub t1,t1,a0			# subtrai endereco do sprite base
-	add t1,t1,a3			# adiciona endereco do sprite de colisao para utilizar a mesma coordenada dentro do sprite
-	sub t0,t0,a4			# subtrai o endereco do frame atual do bitmap
-	add t0,t0,a6			# adiciona o endereco do mapa de colisao
-	
-	lbu t6,3(t1) 			# guarda a word de pixels do sprite de colisao
-	beq t6,s5,SkipR0
-	sb t6,0(t0)
-SkipR0:	lbu t6,2(t1) 	
-	beq t6,s5,SkipR1		
-	sb t6,1(t0)
-SkipR1:	lbu t6,1(t1) 	
-	beq t6,s5,SkipR2		
-	sb t6,2(t0)
-SkipR2:	lbu t6,0(t1) 	
-	beq t6,s5,SkipR3		
-	sb t6,3(t0)
-SkipR3:
-	
-	sub t1,t1,a3			# subtrai endereco do sprite de colisao
-	add t1,t1,a0			# adiciona endereco do sprite base
-	sub t0,t0,a6			# subtrai endereco do mapa de colisao
-	add t0,t0,a4			# adiciona endereco do frame atual do bitmap
+	sb t6,3(t0) 
 
 	addi t0,t0,-4 			# recua o endereco do bitmap display em 4
 	addi t1,t1,4 			# avanca o endereco da imagem em 4
@@ -1385,31 +1545,40 @@ EndCheckColors:
 
 FimPrint:
 	lw ra,0(sp)
-	addi sp,sp,4			# recupera endereco de retorno da pilha
+	lw s0,4(sp)
+	lw s1,8(sp)
+	lw s2,12(sp)
+	lw s3,16(sp)
+	lw s4,20(sp)
+	lw s5,24(sp)
+	lw s6,28(sp)
+	addi sp,sp,32
 
 	ret 
 
 #----------
-Limpar:		# a0 = endereco com a posicao que sera limpa; a1* = endereco com a posicao nova (apenas para comparacao)
+CollisionUpdate: # a0 = endereco com a posicao inicial
 
-	lw t0,0(a0)
-	lw t1,0(a1)
-	#beq t0,t1,FimLimpar		# se a posicao nova do sprite for igual a posicao atual nao e necessario limpar o mapa
-	
-	lw t0,OffsetX
-	lw t1,OldOffset
-	bne t0,t1,FimLimpar		# se o mapa se mover nao e necessario limpar
+	addi sp,sp,-32
+	sw ra,0(sp)
+	sw s0,4(sp)
+	sw s1,8(sp)
+	sw s2,12(sp)
+	sw s3,16(sp)
+	sw s4,20(sp)
+	sw s5,24(sp)
+	sw s6,28(sp)
 	
 	lhu a1,0(a0)			# a1, posicao X original do sprite
 	lhu a2,2(a0)			# a2, posicao Y original do sprite
 	
-	andi s0,a1,0xf			# s0, resto da posicao X por 16
+	#andi s0,a1,0xf			# s0, resto da posicao X por 16
 	srli s1,a1,4			# s1, divisao da posicao X por 16
 	
-	andi s2,a2,0xf			# s2, resto da posicao Y por 16
+	#andi s2,a2,0xf			# s2, resto da posicao Y por 16
 	srli s3,a2,4			# s3, divisao da posicao Y por 16
 	
-	la t0,mapa40x30			
+	la t0,mapa40x30 #mapaCodesAtual			
 	lw t1,0(t0)			# t1, tamanho do mapa de tiles
 	mul t2,s3,t1			
 	
@@ -1432,155 +1601,114 @@ Limpar:		# a0 = endereco com a posicao que sera limpa; a1* = endereco com a posi
 	slli t3,t3,24
 	add t4,t4,t3			# t4 = 0x44332211
 	
-	la s4,BGTileCodes		# s4, endereco com todos os cï¿½digos de tile
+	la s4,BGTileCodes		# s4, endereco com todos os codigos de tile
 	sw t4,0(s4)			
 	mv s5,zero			# s5, contador de tiles
-LoopLimpar:
+LoopRenderCol:
 
-	lbu s6,0(s4) 			# s6, cï¿½digo do tile atual
+	lbu s6,0(s4) 			# s6, codigo do tile atual
 
 	li t3,1				# analise dos codigos de tile
-	beq s6,t3,GetLimparTile1
+	beq s6,t3,GetColTile1
 	li t3,2
-	beq s6,t3,GetLimparTile2
+	beq s6,t3,GetColTile2
 	li t3,3
-	beq s6,t3,GetLimparTile3
+	beq s6,t3,GetColTile3
 	li t3,4
-	beq s6,t3,GetLimparTile4
+	beq s6,t3,GetColTile4
 	li t3,5
-	beq s6,t3,GetLimparTile5
+	beq s6,t3,GetColTile5
 	li t3,6
-	beq s6,t3,GetLimparTile6
+	beq s6,t3,GetColTile6
 	
-GetLimparTile1:
-	la a3,grama
+GetColTile1:
+	#la a3,grama
 	la a5,emptyCol
 	j GotLimparTile
-GetLimparTile2:
-	la a3,chao
+GetColTile2:
+	#la a3,chao
 	la a5,emptyCol
 	j GotLimparTile
-GetLimparTile3:
-	la a3,plataforma1
+GetColTile3:
+	#la a3,plataforma1
 	la a5,plataforma1Col
 	j GotLimparTile
-GetLimparTile4:
-	la a3,plataforma2
+GetColTile4:
+	#la a3,plataforma2
 	la a5,plataforma2Col
 	j GotLimparTile
-GetLimparTile5:
-	la a3,plataforma3
+GetColTile5:
+	#la a3,plataforma3
 	la a5,plataforma3Col
 	j GotLimparTile
-GetLimparTile6:
-	la a3,blocoExemp
+GetColTile6:
+	#la a3,blocoExemp
 	la a5,blocoExempCol
 	j GotLimparTile
 
-GotLimparTile:	# a3, sprite do tile que sera desenhado
+GotLimparTile:	# a5, sprite de colisao que sera desenhado
 	
-	lhu t1,OffsetX
-	sub s7,a1,t1			# subtrai a posicao X original do sprite pelo offset X
-	lhu t2,OffsetY			
-	sub s8,a2,t2			# subtrai a posicao Y original do sprite pelo offset Y
+	la t0,collisionRender
 	
-	li t1,320
-	li t2,240
-	rem s7,s7,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial
-	rem s8,s8,t2			# tecnicamente desnecessario por causa do offset, mas mantido por garantia e para testes que mudam a posicao manualmente
-
-	lw a4,BitmapFrame
-	
-	li t2,16
-	
-	addi t1,a3,spriteHeader		# endereco do sprite mais spriteHeader
-	add t0,a4,s7 			# adiciona X ao endereco do bitmap
-	
-	li t6,1
-	beq s5,t6,RightColTile
-	li t6,3
-	beq s5,t6,RightColTile
-	# se for o primeiro ou terceiro tile:
-	add t1,t1,s0			# endereco do sprite precisa comecar adicionando o numero de pixels do offset X para a direita
-	sub t4,t2,s0			# largura dos tiles da esquerda igual a 16 - numero de pixels do offset X
-	j DoneColTilesSet
-RightColTile:
-	# se for o segundo ou quarto tile:
-	mv t4,s0			# largura dos tiles da direita igual ao numero de pixels do offset X
-	beq t4,zero,SkipTileLimpar 	# se os tiles da segunda coluna tiverem tamanho 0 eles podem ser skipados, porem o terceiro tile ainda precisa ser analisado
+	beq s5,zero,LeftColTile
+	li t1,2
+	beq s5,t1,LeftColTile
+	# se for um dos tiles da coluna direita:
 	addi t0,t0,16
-	sub t0,t0,s0			# endereco do bitmap e passado 16 - numero de pixels do offset X para a direita
-DoneColTilesSet:
-
-	li t2,16
-	li t3,320
+LeftColTile:
+	blt s5,t1,UpperColTile
+	# se for um dos tiles da linha de baixo
+	addi t0,t0,512
+UpperColTile:		
 	
-	mul t6,t3,s8
-	add t0,t0,t6 			# adiciona Y ao endereco do bitmap -> t0, endereco do bitmap
-	
-	li t6,1
-	bgt s5,t6,BottomLineTile
-	# se for o primeiro ou segundo tile:
-	mul t6,t2,s2
-	add t1,t1,t6			# endereco do sprite precisa comecar adicionando o numero de linhas de pixels do offset Y para baixo
-	sub t5,t2,s2			# altura dos tiles da primeira linha igual a 16 - numero de pixels do offset Y
-	j DoneLineTilesSet
-BottomLineTile:
-	mv t5,s2			# altura dos tiles da segunda linha igual ao numero de pixels do offset Y
-	beq t5,zero,FimLimpar		# se algum dos tiles de baixo tiver tamanho 0, quer dizer que so a linha de cima precisou ser desenhada e que o Limpar pode terminar
-	sub t6,t2,s2
-	mul t6,t3,t6
-	add t0,t0,t6			# endereco do bitmap e passado 16 - numero de pixels do offset Y para baixo	
-DoneLineTilesSet:
-	
+	mv t1,a5
+	addi t1,t1,spriteHeader
 	mv t2,zero			# t2, contador de colunas
 	mv t3,zero			# t3, contador de linhas
-			
-	lw a6,MapaColAddress		# a6, armazena endereco do mapa de colisao
+	li t4,16
+	li t5,16
 
-SaveTileLimpar:
+SaveTileRenderCol:
 
-	lbu t6,0(t1) 			# guarda um pixel do tile
-	sb t6,0(t0) 			# salva no bitmap
+	lw t6,0(t1) 			# guarda uma word do tile
+	sw t6,0(t0) 			# salva no render de colisao
 
-	sub t1,t1,a3			# subtrai endereco do sprite base
-	add t1,t1,a5			# adiciona endereco do sprite de colisao para utilizar a mesma coordenada dentro do sprite
-	sub t0,t0,a4			# subtrai o endereco do frame atual do bitmap
-	add t0,t0,a6			# adiciona o endereco do mapa de colisao
-
-	lbu t6,0(t1) 			# guarda um pixel do sprite de colisao
-	sb t6,0(t0)
-
-	sub t1,t1,a5			# subtrai endereco do sprite de colisao
-	add t1,t1,a3			# adiciona endereco do sprite base
-	sub t0,t0,a6			# subtrai endereco do mapa de colisao
-	add t0,t0,a4			# adciona endereco do frame atual do bitmap
-
-	addi t0,t0,1			# avanca o endereco do bitmap em 1
-	addi t1,t1,1 			# avanca o endereco da imagem em 1		
+	addi t0,t0,4			# avanca o endereco do bitmap em 1
+	addi t1,t1,4 			# avanca o endereco da imagem em 1		
 	
-	addi t2,t2,1 			# avanca o contador de colunas em 1
-	blt t2,t4,SaveTileLimpar 	# enquanto a linha nao estiver completa, continua desenhando ela
+	addi t2,t2,4 			# avanca o contador de colunas em 1
+	blt t2,t4,SaveTileRenderCol 	# enquanto a linha nao estiver completa, continua desenhando ela
 	
-	addi t0,t0,320 			# avanca para a proxima linha do bitmap
-	sub t0,t0,t4			# subtrai a largura do tile
-	
-	addi t1,t1,16 			# avanca para a proxima linha do tile
-	sub t1,t1,t4			# subtrai a largura do tile
+	addi t0,t0,16 			# avanca para a proxima linha do render
 
 	mv t2,zero 			# reseta o contador de colunas
 	addi t3,t3,1 			# avanca o contador de linhas em 1
-	blt t3,t5,SaveTileLimpar 	# enquanto o contador de linhas for menor que a altura repete a funcao
+	blt t3,t5,SaveTileRenderCol 	# enquanto o contador de linhas for menor que a altura repete a funcao
 
-SkipTileLimpar:
+NextTileRenderCol:
 	addi s4,s4,1			# avanca para o proximo codigo de tile
 	addi s5,s5,1			# avanca o contador de tiles
 	
 	li t2,4
-	beq s5,t2,FimLimpar		# se ja foram todos os 4 tiles segue com o Limpar
-	j LoopLimpar
+	beq s5,t2,FimRenderCol		# se ja foram todos os 4 tiles segue com o CollisionUpdate
+	j LoopRenderCol
 	
-FimLimpar:
+FimRenderCol:
+RenderObjectsCol:
+	
+
+FimCollisionUpdate:
+	
+	lw ra,0(sp)
+	lw s0,4(sp)
+	lw s1,8(sp)
+	lw s2,12(sp)
+	lw s3,16(sp)
+	lw s4,20(sp)
+	lw s5,24(sp)
+	lw s6,28(sp)
+	addi sp,sp,32
+
 	ret 
 
 #----------
@@ -1760,26 +1888,11 @@ PreTileLine:	# loop de impressao do tile comeca aqui
 	# 1a coluna:
 	add t1,t1,s0			# adiciona resto do offset X ao endereco do sprite
 NotFirstCol:
-		
-	lw a6,MapaColAddress		# a6, armazena endereco do mapa de colisao
 	
 TileLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 
 	lbu t6,0(t1) 			# guarda um pixel do sprite
 	sb t6,0(t0) 			# desenha no bitmap display um pixel do sprite (jï¿½ que tamanho das linhas pode variar de 1 a 16)
-	
-	sub t1,t1,a1			# subtrai endereco do sprite base
-	add t1,t1,a5			# adiciona endereco do sprite de colisao para utilizar a mesma coordenada dentro do sprite
-	sub t0,t0,a4			# subtrai o endereco do frame atual do bitmap
-	add t0,t0,a6			# adiciona o endereco do mapa de colisao
-			
-	lbu t6,0(t1) 			# guarda a word de pixels do sprite de colisao
-	sb t6,0(t0)
-	
-	sub t1,t1,a5			# subtrai endereco do sprite de colisao
-	add t1,t1,a1			# adiciona de volta o endereco do sprite base
-	sub t0,t0,a6			# subtrai endereco do mapa de colisao
-	add t0,t0,a4			# adciona endereco do frame atual do bitmap
 
 	addi t0,t0,1 			# avanca o endereco do bitmap display
 	addi t1,t1,1 			# avanca o endereco da imagem
@@ -1827,8 +1940,6 @@ SaveCenterTile: 	# a1 = sprite que vai ser salvo no mapa de pixels, a2 = offset 
 	
 	lw t4,0(a1) 			# guarda a largura do tile
 	lw t5,4(a1)			# guarda a altura do tile
-	
-	lw a6,MapaColAddress		# a6, armazena endereco do mapa de colisao
 				
 CenterTileLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 
@@ -1840,25 +1951,6 @@ CenterTileLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 	sb t6,2(t0)
 	lbu t6,3(t1) 			
 	sb t6,3(t0)
-	
-	sub t1,t1,a1			# subtrai endereco do sprite base
-	add t1,t1,a5			# adiciona endereco do sprite de colisao para utilizar a mesma coordenada dentro do sprite
-	sub t0,t0,a4			# subtrai o endereco do frame atual do bitmap
-	add t0,t0,a6			# adiciona o endereco do mapa de colisao
-	
-	lbu t6,0(t1) 			# guarda uma word de pixels do sprite de colisao
-	sb t6,0(t0)
-	lbu t6,1(t1) 			
-	sb t6,1(t0)
-	lbu t6,2(t1) 			
-	sb t6,2(t0)
-	lbu t6,3(t1) 			
-	sb t6,3(t0)
-	
-	sub t1,t1,a5			# subtrai endereco do sprite de colisao
-	add t1,t1,a1			# adiciona endereco do sprite base
-	sub t0,t0,a6			# subtrai endereco do mapa de colisao
-	add t0,t0,a4			# adciona endereco do frame atual do bitmap
 
 	addi t0,t0,4			# avanca o endereco do bitmap display
 	addi t1,t1,4 			# avanca o endereco da imagem

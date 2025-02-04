@@ -1,0 +1,65 @@
+.eqv DustID 0
+.eqv FireID 1
+.eqv IceID 2
+
+.eqv FireSpeedX 4
+.eqv FireSpeedY 1
+
+.eqv IceSpeedY 4
+
+Obj0ID: 	.word 0
+Obj0PosX:	.half 0
+Obj0PosY:	.half 0
+Obj0Dir:	.half 0
+Obj0MovePat:	.half 0
+Obj0LifeFrames:	.half 0
+Obj0Anim:	.half 0
+
+Obj1ID: 	.word 0
+Obj1PosX:	.half 0
+Obj1PosY:	.half 0
+Obj1Dir:	.half 0
+Obj1MovePat:	.half 0
+Obj1LifeFrames:	.half 0
+Obj1Anim:	.half 0
+
+Obj2ID: 	.word 0
+Obj2PosX:	.half 0
+Obj2PosY:	.half 0
+Obj2Dir:	.half 0
+Obj2MovePat:	.half 0
+Obj2LifeFrames:	.half 0
+Obj2Anim:	.half 0
+
+Obj3ID: 	.word 0
+Obj3PosX:	.half 0
+Obj3PosY:	.half 0
+Obj3Dir:	.half 0
+Obj3MovePat:	.half 0
+Obj3LifeFrames:	.half 0
+Obj3Anim:	.half 0
+
+Obj4ID: 	.word 0
+Obj4PosX:	.half 0
+Obj4PosY:	.half 0
+Obj4Dir:	.half 0
+Obj4MovePat:	.half 0
+Obj4LifeFrames:	.half 0
+Obj4Anim:	.half 0
+
+Obj5ID: 	.word 0
+Obj5PosX:	.half 0
+Obj5PosY:	.half 0
+Obj5Dir:	.half 0
+Obj5MovePat:	.half 0
+Obj5LifeFrames:	.half 0
+Obj5Anim:	.half 0
+
+Obj6ID: 	.word 0
+Obj6PosX:	.half 0
+Obj6PosY:	.half 0
+Obj6Dir:	.half 0
+Obj6MovePat:	.half 0
+Obj6LifeFrames:	.half 0
+Obj6Anim:	.half 0
+
