@@ -8,8 +8,8 @@ OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal qu
 OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
 OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
 
-PlayerPosX: 	.half 0		# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
-PlayerPosY: 	.half 0		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
+PlayerPosX: 	.half 32	# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
+PlayerPosY: 	.half 32	# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
 OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual)  ## nao mais utilizado atualmente
 TempPlayerPos:	.word 0
 PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
@@ -56,7 +56,7 @@ FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usa
 
 ObjAtual:	.word 0
 ObjTempPos:	.word 0
-.eqv objQuant 7
+.eqv objQuant 10
 .eqv objSize 16
 
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
@@ -125,6 +125,8 @@ Main:
 	jal PlayerControls	# com base na ultima tecla apertada, salva em s10 pelo KeyPress, realiza as acoes de movimento do jogador
 	
 	jal PlayerAnimation
+	
+	#jal EnemyCheck
 	
 # toda funcao que muda posicao de personagens/objetos deve ser chamada antes de imprimi-los
 
@@ -253,6 +255,8 @@ NewInstance:
 	beq a0,t0,BuildFire
 	li t0,4
 	beq a0,t0,BuildIce
+	li t0,5
+	beq a0,t0,BuildPullArea
 	
 BuildDust:
 	# s0 tem o endereco inicial das variaveis do objeto
@@ -322,6 +326,23 @@ BuildIce:
 	
 	j BuildNextObj
 	
+BuildPullArea:
+	# s0 tem o endereco inicial das variaveis do objeto
+	sw a0,0(s0) # id
+	
+	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
+	
+	sh a3,8(s0) # dir
+	
+	sh zero,10(s0) # movePat
+	
+	li t0,15
+	sh t0,12(s0) # lifeFrames
+	
+	sh zero,14(s0) # anim
+	
+	j BuildNextObj
+	
 FimBuildObject:
 
 	lw ra,0(sp)
@@ -374,12 +395,14 @@ DrawObjAtual:
 	
 	li t0,1
 	beq s3,t0,DrawDust
-	li t0,1
+	li t0,2
 	beq s3,t0,DrawTinyDust
 	li t0,3
 	beq s3,t0,DrawFire
 	li t0,4
 	beq s3,t0,DrawIce
+	li t0,5
+	beq s3,t0,DrawPullArea
 
 	j DrawNextObj
 
@@ -407,38 +430,81 @@ DustBreakRtoL:
 	la a0,dust1 # frames com vida 2 e 1
 	j DrawObjReady
 	
-DrawTinyDust:
-	beq s7,zero,DrawTinyLU # esq cima
+DrawTinyDust: # ordem: 1 e 3, 0 e 5, 2 e 4
+	beq s7,zero,DrawTinyLU # 0 = esq cima
 	li t0,1
-	beq s7,t0,DrawTinyRD # dir baixo
+	beq s7,t0,DrawTinyMU # 1 = meio cima
 	li t0,2
-	beq s7,t0,DrawTinyRU # dir cima
-	# 3 = esq baixo 
-	addi s4,s4,20
-	addi s5,s5,4
-	j DoneTinyPos
+	beq s7,t0,DrawTinyRU # 2 = dir cima
+	li t0,3
+	beq s7,t0,DrawTinyLD # 3 = esq baixo
+	li t0,4
+	beq s7,t0,DrawTinyMD # 4 = meio baixo
+	li t0,5
+	beq s7,t0,DrawTinyRD # 5 = dir baixo 
 DrawTinyLU:
-	addi s4,s4,20
-	addi s5,s5,-4
+	li t1,20
+	li t2,-8
+	li t3,-2
+	addi s5,s5,1
 	j DoneTinyPos
-DrawTinyRD:
-	addi s4,s4,36
-	addi s5,s5,4
+DrawTinyMU:
+	li t1,36
+	li t2,-8
+	li t3,-4
+	addi s5,s5,1
 	j DoneTinyPos
 DrawTinyRU:
-	addi s4,s4,36
-	addi s5,s5,-4
-	
+	li t1,52
+	li t2,-10
+	li t3,-3
+	addi s5,s5,1
+	j DoneTinyPos
+DrawTinyLD:
+	li t1,20
+	li t2,8
+	li t3,-2
+	addi s5,s5,-1
+	j DoneTinyPos
+DrawTinyMD:
+	li t1,36
+	li t2,8
+	li t3,-4
+	addi s5,s5,-1
+	j DoneTinyPos
+DrawTinyRD:
+	li t1,52
+	li t2,8
+	li t3,-3
+	addi s5,s5,-1
+
 DoneTinyPos:
+	bne s6,zero,DrawTinyDustRight
+	sub t1,zero,t1 # se jogador estiver para a esquerda inverte as posicoes horizontais
+	sub t3,zero,t3
+DrawTinyDustRight:
+	
+	add s4,s4,t3
+
+	sh s4,4(s0) # PosX
+	sh s5,6(s0) # PosY
+	
+	add s4,s4,t1
+	add s5,s5,t2
+
 	slli t0,s5,16
 	add t0,t0,s4
 	sw t0,ObjTempPos,t1
 	la a1,ObjTempPos ### TODO revisar
 	
-	la a1,tinyDust
 	la a2,emptyCol
 	mv a3,s6
 	mv a4,zero
+	
+	la a0,tinyDust
+	addi t0,s8,2
+	beq t0,zero,DrawObjReady
+	la a0,tinyDust
 	
 	j DrawObjReady
 	
@@ -504,6 +570,24 @@ DrawIce:
 	la a0,dust1 # frames com vida 2 e 1
 	j DrawObjReady
 	
+DrawPullArea:
+	addi s4,s4,-48
+	beq s6,zero,DrawPullAreaLeft
+	addi s4,s4,64 # corrige o offset inicial da area de puxar quando esta para a direitapara a direita
+DrawPullAreaLeft:
+
+	addi s5,s5,-6 # sprite da area de puxar deve ficar 46pixels para cima
+	slli t0,s5,16
+	add t0,t0,s4
+	sw t0,ObjTempPos,t1
+	la a1,ObjTempPos ### TODO revisar
+	
+	la a2,emptyCol ###
+	mv a3,s6
+	mv a4,zero
+	
+	la a0,playerPullAreaCol # sempre o mesmo sprite
+	j DrawObjReady
 	
 DrawObjReady:
 	jal Print
@@ -580,13 +664,13 @@ SpecialKeys:
 	li t0,'p'
   	beq t1,t0,EndGame
   	
-  	li t0,'0'
+  	li t0,'1'
   	beq t1,t0,SetPower0
   	
-  	li t0,'1'
+  	li t0,'2'
   	beq t1,t0,SetPower1
   	
-  	li t0,'2'
+  	li t0,'3'
   	beq t1,t0,SetPower2
 
 FimKeyPress:  	
@@ -1273,7 +1357,6 @@ ContinueAnim:
 	li t0,10
 	beq s3,t0,PlayerStartEat
 	li t0,11
-	la s4,kirbyEat2
 	beq s3,t0,PlayerEat
 	li t0,12
 	beq s3,t0,PlayerEndEat
@@ -1344,6 +1427,8 @@ PlayerBreak:
 	mv a4,zero
 	
 	jal BuildObject
+	
+	j GotPlayerSprite
 	
 PlayerQuickFall:
 	jal CheckNextSprAnim
@@ -1434,26 +1519,37 @@ PlayerStartEat:
 	la s7,playerEatCol
 	beq s1,t0,GotPlayerSprite
 
-PlayerEat: ### TODO?
+PlayerEat:
 	lw t0,PlayerObjDelay
-	li t1,15
-	beq t0,t1,TinyDustObj2
 	li t1,10
-	beq t0,t1,TinyDustObj3
+	beq t0,t1,TinyDustObj2
 	li t1,5
-	beq t0,t1,TinyDustObj4
-	bgt t0,zero,GotPlayerSprite
+	beq t0,t1,TinyDustObj3
+	bgt t0,zero,DoneTinyDustObjs
 	
-	li t0,20
+	li t0,15
 	sw t0,PlayerObjDelay,t1
 
-	### li a0,5 # id do objeto (area do ataque)
+	li a0,5 # id do objeto (area de puxar)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	mv a4,zero
+	jal BuildObject
 
 	li a0,2 # id do objeto (poeira pequena)
 	li a1,1 # quantidade do objeto
 	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
-	mv a4,zero
+	li a4,1
+	jal BuildObject
+	
+	li a0,2 # id do objeto (poeira pequena)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,3
+	jal BuildObject
 
 	j DoneTinyDustObjs
 
@@ -1462,29 +1558,37 @@ TinyDustObj2:
 	li a1,1 # quantidade do objeto
 	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
-	li a4,1
+	mv a4,zero
+	jal BuildObject
+	
+	li a0,2 # id do objeto (poeira pequena)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,5
+	jal BuildObject
 
 	j DoneTinyDustObjs
 
 TinyDustObj3:	
+
 	li a0,2 # id do objeto (poeira pequena)
 	li a1,1 # quantidade do objeto
 	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
 	li a4,2
+	jal BuildObject
 	
-	j DoneTinyDustObjs
-	
-TinyDustObj4:	
 	li a0,2 # id do objeto (poeira pequena)
 	li a1,1 # quantidade do objeto
 	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
-	li a4,3
+	li a4,4
+	jal BuildObject
 	
 DoneTinyDustObjs:
-
-	jal BuildObject
+	
+	la s4,kirbyEat2
 	
 	j GotPlayerSprite
 

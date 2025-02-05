@@ -1,11 +1,11 @@
-.eqv DustID 0
-.eqv FireID 1
-.eqv IceID 2
+.eqv DustID 1
+.eqv TinyDust 2
+.eqv FireID 3
+.eqv IceID 4
+.eqv pullAreaID 5
 
-.eqv FireSpeedX 4
-.eqv FireSpeedY 1
-
-.eqv IceSpeedY 4
+#.eqv FireSpeedX 4
+#.eqv FireSpeedY 1
 
 Obj0ID: 	.word 0
 Obj0PosX:	.half 0
@@ -62,4 +62,28 @@ Obj6Dir:	.half 0
 Obj6MovePat:	.half 0
 Obj6LifeFrames:	.half 0
 Obj6Anim:	.half 0
+
+Obj7ID: 	.word 0
+Obj7PosX:	.half 0
+Obj7PosY:	.half 0
+Obj7Dir:	.half 0
+Obj7MovePat:	.half 0
+Obj7LifeFrames:	.half 0
+Obj7Anim:	.half 0
+
+Obj8ID: 	.word 0
+Obj8PosX:	.half 0
+Obj8PosY:	.half 0
+Obj8Dir:	.half 0
+Obj8MovePat:	.half 0
+Obj8LifeFrames:	.half 0
+Obj8Anim:	.half 0
+
+Obj9ID: 	.word 0
+Obj9PosX:	.half 0
+Obj9PosY:	.half 0
+Obj9Dir:	.half 0
+Obj9MovePat:	.half 0
+Obj9LifeFrames:	.half 0
+Obj9Anim:	.half 0
 
