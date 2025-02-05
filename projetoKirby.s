@@ -61,31 +61,25 @@ ObjTempPos:	.word 0
 
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
-.include "objects/objectsDB.data"
-
 .include "sprites/Ataque1.data"
-.include "sprites/playerCol.data"
-.include "sprites/playerHighCol.data"
-.include "sprites/playerBigCol.data"
 .include "sprites/chao.data"
 .include "sprites/grama.data"
-.include "sprites/emptyCol.data"
 .include "sprites/plataforma1.data"
-.include "sprites/plataforma1Col.data"
 .include "sprites/plataforma2.data"
-.include "sprites/plataforma2Col.data"
 .include "sprites/plataforma3.data"
-.include "sprites/plataforma3Col.data"
 .include "sprites/blocoExemp.data"
-.include "sprites/blocoExempCol.data"
 .include "sprites/mapa40x30.data"
 .include "sprites/mapa30x30.data"
 .include "kirby/kirbyMain.data" 
 .include "kirby/kirbyMain2.data"
 .include "kirby/kirbyPowers.data"
 
-.include "objects/objectsSprites.data"
-.include "collisionRender.data"
+.include "objects/objectDB.data"
+.include "objects/objectSprites.data"
+
+.include "collision/collisionObjects.data"
+.include "collision/collisionRender.data"
+.include "collision/collisionTiles.data"
 
 
 .text
@@ -112,10 +106,9 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 	
 	lw a0,PlayerSprite
 	la a1,PlayerPosX
-	la a2,OldPlayerPos
-	lw a3,PlayerColSprite
-	lw a4,PlayerLastDir
-	lw a5,PlayerPowState
+	lw a2,PlayerColSprite
+	lw a3,PlayerLastDir
+	lw a4,PlayerPowState
 	jal Print		# imprime o jogador na inicializacao
 	
 	li a7,30
@@ -143,10 +136,9 @@ Main:
 	
 	lw a0,PlayerSprite
 	la a1,PlayerPosX
-	la a2,OldPlayerPos
-	lw a3,PlayerColSprite
-	lw a4,PlayerLastDir
-	lw a5,PlayerPowState
+	lw a2,PlayerColSprite
+	lw a3,PlayerLastDir
+	lw a4,PlayerPowState
 	jal Print		# imprime o jogador em sua nova posicao
 	
 	jal DrawObjects
@@ -222,7 +214,7 @@ FimClock:
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
 	
 #----------
-BuildObject: # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir)
+BuildObject: # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
 
 	addi sp,sp,-16
 	sw ra,0(sp)
@@ -250,11 +242,16 @@ BuildNextObj:
 NewInstance:
 	addi a1,a1,-1
 	
+	li a7,1
+	ecall
+	
 	li t0,1
 	beq a0,t0,BuildDust
 	li t0,2
-	beq a0,t0,BuildFire
+	beq a0,t0,BuildTinyDust
 	li t0,3
+	beq a0,t0,BuildFire
+	li t0,4
 	beq a0,t0,BuildIce
 	
 BuildDust:
@@ -274,8 +271,56 @@ BuildDust:
 	
 	j BuildNextObj
 	
+BuildTinyDust:
+	# s0 tem o endereco inicial das variaveis do objeto
+	sw a0,0(s0) # id
+	
+	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
+	
+	sh a3,8(s0) # dir
+	
+	sh a4,10(s0) # movePat # a4 = 0, 1, 2, 3 -> esq cima, dir baixo, dir cima, esq baixo 
+	
+	li t0,5
+	sh t0,12(s0) # lifeFrames
+	
+	sh zero,14(s0) # anim
+	
+	j BuildNextObj
+	
 BuildFire:
+	# s0 tem o endereco inicial das variaveis do objeto
+	sw a0,0(s0) # id
+	
+	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
+	
+	sh a3,8(s0) # dir
+	
+	sh a4,10(s0) # movePat, para o fogo: 0 = para cima, 1 = para baixo
+	
+	li t0,10
+	sh t0,12(s0) # lifeFrames
+	
+	sh zero,14(s0) # anim
+	
+	j BuildNextObj
+
 BuildIce:
+	# s0 tem o endereco inicial das variaveis do objeto
+	sw a0,0(s0) # id
+	
+	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
+	
+	sh a3,8(s0) # dir
+	
+	sh zero,10(s0) # movePat
+	
+	li t0,8
+	sh t0,12(s0) # lifeFrames
+	
+	sh zero,14(s0) # anim
+	
+	j BuildNextObj
 	
 FimBuildObject:
 
@@ -299,13 +344,13 @@ DrawObjects:
 IterateDrawObjs:
 	lw s2,0(s0)
 	
-	#mv a0,s2
-	#li a7,1
-	#ecall
+	mv a0,s2
+	li a7,1
+	ecall
 	
-	#la a0,endl
-	#li a7,4
-	#ecall
+	la a0,endl
+	li a7,4
+	ecall
 	
 	bne s2,zero,DrawObjAtual
 	
@@ -329,39 +374,141 @@ DrawObjAtual:
 	
 	li t0,1
 	beq s3,t0,DrawDust
+	li t0,1
+	beq s3,t0,DrawTinyDust
+	li t0,3
+	beq s3,t0,DrawFire
+	li t0,4
+	beq s3,t0,DrawIce
 
 	j DrawNextObj
 
 DrawDust:
 	
-	li t0,20
+	li t0,12
 	beq s6,zero,DustBreakRtoL
-	li t0,-4
+	li t0,-12
 DustBreakRtoL:
 	add s4,s4,t0 # define em qual lado do kirby vai aparecer
 	
+	addi t1,s5,4
+	slli t0,t1,16
+	add t0,t0,s4
+	sw t0,ObjTempPos,t1
+	la a1,ObjTempPos ### TODO revisar
+	
+	la a2,emptyCol
+	mv a3,s6
+	mv a4,zero
+	
+	la a0,dust0 # frames com vida 4 e 3
+	li t0,2
+	bgt s8,t0,DrawObjReady
+	la a0,dust1 # frames com vida 2 e 1
+	j DrawObjReady
+	
+DrawTinyDust:
+	beq s7,zero,DrawTinyLU # esq cima
+	li t0,1
+	beq s7,t0,DrawTinyRD # dir baixo
+	li t0,2
+	beq s7,t0,DrawTinyRU # dir cima
+	# 3 = esq baixo 
+	addi s4,s4,20
+	addi s5,s5,4
+	j DoneTinyPos
+DrawTinyLU:
+	addi s4,s4,20
+	addi s5,s5,-4
+	j DoneTinyPos
+DrawTinyRD:
+	addi s4,s4,36
+	addi s5,s5,4
+	j DoneTinyPos
+DrawTinyRU:
+	addi s4,s4,36
+	addi s5,s5,-4
+	
+DoneTinyPos:
 	slli t0,s5,16
 	add t0,t0,s4
 	sw t0,ObjTempPos,t1
 	la a1,ObjTempPos ### TODO revisar
-	mv a2,a1 # OldPos, inutil atualmente
 	
-	la a3,emptyCol
-	mv a4,s6
-	mv a5,zero
+	la a1,tinyDust
+	la a2,emptyCol
+	mv a3,s6
+	mv a4,zero
 	
-	la a0,dust0
-	li t0,2
-	bgt s8,t0,DrawObjReady
-	la a0,dust1
 	j DrawObjReady
 	
+DrawFire:	
+	beq s6,zero,DrawFireLeft
+	addi s4,s4,4
+	addi t1,s4,12 # offset inicial do fogo nao e salvo
+	j DoneDrawFireHor
+DrawFireLeft:
+	addi s4,s4,-4
+	addi t1,s4,-12 # offset inicial do fogo nao e salvo
+DoneDrawFireHor:
+	
+	andi t0,s8,1
+	bne t0,zero,DoneDrawFireVert # divide a movimentacao vertical por 1
+	beq s7,zero,DrawFireDown
+	addi s5,s5,-1
+	j DoneDrawFireVert
+DrawFireDown:
+	addi s5,s5,1
+DoneDrawFireVert:
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+
+	slli t0,s5,16
+	add t0,t0,t1
+	sw t0,ObjTempPos,t1
+	la a1,ObjTempPos ### TODO revisar
+	
+	la a2,emptyCol
+	mv a3,s6
+	mv a4,zero
+	
+	la a0,fire0 # frames com vida 8 e 7
+	li t0,6 
+	bgt s8,t0,DrawObjReady
+	la a0,fire1 # frames com vida 6 e 5
+	li t0,4
+	bgt s8,t0,DrawObjReady
+	la a0,fire2 # frames com vida 4 e 3
+	li t0,2 
+	bgt s8,t0,DrawObjReady
+	la a0,fire3 # frames com vida 2 e 1
+	j DrawObjReady
+	
+DrawIce:
+	slli t0,s5,16
+	add t0,t0,s4
+	sw t0,ObjTempPos,t1
+	la a1,ObjTempPos ### TODO revisar
+	
+	la a2,emptyCol
+	mv a3,s6
+	mv a4,zero
+	
+	la a0,ice # frames com vida 8 a 5
+	li t0,4 
+	bgt s8,t0,DrawObjReady
+	la a0,dust0 # frames com vida 4 e 3
+	li t0,2 
+	bgt s8,t0,DrawObjReady
+	la a0,dust1 # frames com vida 2 e 1
+	j DrawObjReady
 	
 	
 DrawObjReady:
 	jal Print
 	
-	mv a0,s3
+	mv a0,s8 ###
 	li a7,1
 	ecall
 
@@ -927,6 +1074,7 @@ SnapRight:	# move o jogador uma coluna para a esquerda, loopando ate nao estar m
 #----------
 PlayerAnimation:
 	addi sp,sp,-4
+	# s0, s1, s2, s3, s4, s5, s6, s7
 	sw ra,0(sp)			# pilha armazena apenas valor de retorno
 
 	lw s0,PlayerLastDir		# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1
@@ -1091,6 +1239,14 @@ ContinueAnim:
 	mv s6,zero  # inicia definindo a duracao da nova animacao como zero, para o caso das que tem apenas 1 frame
 	la s7,playerCol  # inicia armazenando o sprite de colisao basico, ja que e usado na maioria dos sprites
 	
+	#mv a0,s3
+	#li a7,1
+	#ecall
+	
+	#la a0,endl
+	#li a7,4
+	#ecall	
+	
 	# definicao das animacoes
 	beq s3,zero,PlayerIdle
 	li t0,1
@@ -1118,7 +1274,7 @@ ContinueAnim:
 	beq s3,t0,PlayerStartEat
 	li t0,11
 	la s4,kirbyEat2
-	beq s3,t0,GotPlayerSprite
+	beq s3,t0,PlayerEat
 	li t0,12
 	beq s3,t0,PlayerEndEat
 	li t0,13
@@ -1176,7 +1332,7 @@ PlayerWalk:
 	
 PlayerBreak:
 	lw t0,PlayerObjDelay
-	bgt t0,zero,GotPlayerSprite
+	bgt t0,zero,GotPlayerSprite # trocar essa label se copiar essa linha
 	
 	li t0,4
 	sw t0,PlayerObjDelay,t1
@@ -1185,10 +1341,9 @@ PlayerBreak:
 	li a1,1 # quantidade do objeto
 	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
+	mv a4,zero
 	
 	jal BuildObject
-	
-	j GotPlayerSprite
 	
 PlayerQuickFall:
 	jal CheckNextSprAnim
@@ -1217,7 +1372,7 @@ PlayerQuickFall:
 	beq s1,t0,GotPlayerSprite
 
 PlayerFly:
-	la s7,playerBigCol
+	la s7,playerCol
 	
 	jal CheckNextSprAnim
 	andi s1,s1,1
@@ -1231,7 +1386,7 @@ PlayerFly:
 	beq s1,t0,GotPlayerSprite
 	
 PlayerSlowFall:
-	la s7,playerBigCol
+	la s7,playerCol
 
 	jal CheckNextSprAnim
 	andi s1,s1,1
@@ -1245,7 +1400,7 @@ PlayerSlowFall:
 	beq s1,t0,GotPlayerSprite
 	
 PlayerBigWalk:
-	la s7,playerBigCol
+	la s7,playerCol
 
 	jal CheckNextSprAnim
 	andi s1,s1,3
@@ -1276,8 +1431,62 @@ PlayerStartEat:
 	li t0,1
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerHighCol
+	la s7,playerEatCol
 	beq s1,t0,GotPlayerSprite
+
+PlayerEat: ### TODO?
+	lw t0,PlayerObjDelay
+	li t1,15
+	beq t0,t1,TinyDustObj2
+	li t1,10
+	beq t0,t1,TinyDustObj3
+	li t1,5
+	beq t0,t1,TinyDustObj4
+	bgt t0,zero,GotPlayerSprite
+	
+	li t0,20
+	sw t0,PlayerObjDelay,t1
+
+	### li a0,5 # id do objeto (area do ataque)
+
+	li a0,2 # id do objeto (poeira pequena)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	mv a4,zero
+
+	j DoneTinyDustObjs
+
+TinyDustObj2:
+	li a0,2 # id do objeto (poeira pequena)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,1
+
+	j DoneTinyDustObjs
+
+TinyDustObj3:	
+	li a0,2 # id do objeto (poeira pequena)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,2
+	
+	j DoneTinyDustObjs
+	
+TinyDustObj4:	
+	li a0,2 # id do objeto (poeira pequena)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,3
+	
+DoneTinyDustObjs:
+
+	jal BuildObject
+	
+	j GotPlayerSprite
 
 PlayerEndEat:
 	jal CheckNextSprAnim
@@ -1285,7 +1494,7 @@ PlayerEndEat:
 	
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerHighCol
+	la s7,playerEatCol
 	beq s1,zero,GotPlayerSprite
 	li t0,1
 	la s4,kirbyEat1
@@ -1306,12 +1515,12 @@ PlayerStartFly:
 	li t0,2
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerHighCol
+	la s7,playerEatCol
 	beq s1,t0,GotPlayerSprite
 	li t0,3
 	la s4,kirbyEat3
 	li s6,5
-	la s7,playerBigCol
+	la s7,playerCol
 	beq s1,t0,GotPlayerSprite
 	
 PlayerAttackAir:
@@ -1320,12 +1529,12 @@ PlayerAttackAir:
 	
 	la s4,kirbyEat3
 	li s6,15
-	la s7,playerBigCol
+	la s7,playerCol
 	beq s1,zero,GotPlayerSprite
 	li t0,1
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerHighCol
+	la s7,playerEatCol
 	beq s1,t0,GotPlayerSprite
 	li t0,2
 	la s4,kirbyEat1
@@ -1337,19 +1546,80 @@ PlayerAttackAir:
 	li s6,5
 	beq s1,t0,GotPlayerSprite
 
-PlayerFireAttack:
-	jal CheckNextSprAnim
-	andi s1,s1,1
-	
-	la s4,kirbyFireAtt0
-	li s6,3
-	beq s1,zero,GotPlayerSprite
-	li t0,1
-	la s4,kirbyFireAtt1
-	li s6,3
-	beq s1,t0,GotPlayerSprite
-
 PlayerIceAttack:
+	lw t0,PlayerObjDelay
+	li t1,8
+	beq t0,t1,IceObjects2
+	bgt t0,zero,DoneIceObjs
+	
+	li t0,16
+	sw t0,PlayerObjDelay,t1
+
+	li a0,4 # id do objeto (gelo)
+	
+	lw a3,PlayerLastDir
+	mv a4,zero ### TODO trocar essa logica para usar o MovPat
+	
+	lhu s8,PlayerPosX
+	lhu s9,PlayerPosY
+	
+	li a1,1 # quantidade do objeto
+	addi t0,s8,8  
+	addi t1,s9,20
+	slli a2,t1,16
+	add a2,a2,t0
+	jal BuildObject
+	
+	li a1,1 # quantidade do objeto
+	addi t0,s8,8
+	addi t1,s9,-20
+	slli a2,t1,16
+	add a2,a2,t0
+	jal BuildObject
+	
+	li a1,1 # quantidade do objeto
+	addi t0,s8,-20
+	addi t1,s9,0
+	slli a2,t1,16
+	add a2,a2,t0
+	jal BuildObject
+	
+	j DoneIceObjs
+	
+IceObjects2:
+	li a0,4 # id do objeto (gelo)
+	
+	lw a3,PlayerLastDir
+	mv a4,zero
+	
+	lhu s8,PlayerPosX
+	lhu s9,PlayerPosY
+	
+	li a1,1 # quantidade do objeto
+	addi t0,s8,-8
+	addi t1,s9,20
+	slli a2,t1,16
+	add a2,a2,t0
+	jal BuildObject
+	
+	li a1,1 # quantidade do objeto
+	addi t0,s8,-8
+	addi t1,s9,-20
+	slli a2,t1,16
+	add a2,a2,t0
+	jal BuildObject
+	
+	li a1,1 # quantidade do objeto
+	addi t0,s8,20
+	addi t1,s9,0
+	slli a2,t1,16
+	add a2,a2,t0
+	jal BuildObject
+	
+	j DoneIceObjs
+
+DoneIceObjs:
+
 	jal CheckNextSprAnim
 	andi s1,s1,1
 	
@@ -1361,8 +1631,40 @@ PlayerIceAttack:
 	li s6,3
 	beq s1,t0,GotPlayerSprite
 
-PlayerSpitItem: # TODO
+PlayerFireAttack:
+	lw t0,PlayerObjDelay
+	li t1,6
+	slt a4,t0,t1 # a4, define se o fogo vai para cima (0) ou para baixo (1)
+	beq t0,t1,FireObject2
+	bgt t0,zero,DoneFireObjs
 
+	li t0,12
+	sw t0,PlayerObjDelay,t1
+FireObject2:
+
+	li a0,3 # id do objeto (fogo)
+	
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	jal BuildObject
+	
+	j DoneFireObjs
+
+DoneFireObjs:
+	jal CheckNextSprAnim
+	andi s1,s1,1
+	
+	la s4,kirbyFireAtt0
+	li s6,3
+	beq s1,zero,GotPlayerSprite
+	li t0,1
+	la s4,kirbyFireAtt1
+	li s6,3
+	beq s1,t0,GotPlayerSprite
+
+PlayerSpitItem: ### TODO
+	j DoneIceObjs
 
 GotPlayerSprite:
 	sh s1,PlayerAnimCount,t0
@@ -1393,8 +1695,8 @@ keepSprAnim:
 	ret
 	
 #----------
-Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do sprite; a2 = endereco com a posicao antiga do sprite; 
-		# a3 = sprite de colisao; a4 = 0 para esquerda ou 1 para direita; a5 = 0, 1 ou 2 para o caso espec�fico do jogador estar com poderes
+Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do sprite;
+		# a2 = sprite de colisao; a3 = 0 para esquerda ou 1 para direita; a4 = 0, 1 ou 2 para o caso espec�fico do jogador estar com poderes
 	# s0, s1, s2, s3, s4, s5, s6 
 	
 	addi sp,sp,-32
@@ -1407,13 +1709,9 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do spri
 	sw s5,24(sp)
 	sw s6,28(sp)
 	
-	#lw t0,0(a1)
-	#lw t1,0(a2)
-	#beq t0,t1,FimPrint		# se a posicao nova for igual a antiga nao e necessaria realizar o print ## agora pode ser necessaria reimprimir o jogador por causa das animacoes
-	
 	mv t0,a1
 	
-	mv s4,a4
+	mv s4,a3
 	
 	lhu s0,0(t0)
 	lhu s1,2(t0)			# salva posicao inicial do sprite	
@@ -1433,9 +1731,9 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do spri
 	rem t3,t3,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial
 	rem t4,t4,t2			# tecnicamente desnecessario por causa do offset, mas mantido por garantia e para testes que mudam a posicao manualmente
 	
-	lw a4,BitmapFrame
+	lw a3,BitmapFrame
 	
-	add t0,a4,t3 			# adiciona x ao endereco do bitmap
+	add t0,a3,t3 			# adiciona x ao endereco do bitmap
 	
 	mul t1,t1,t4
 	add t0,t0,t1 			# adiciona y ao endereco do bitmap
@@ -1512,9 +1810,9 @@ LinhaReverse:
 
 	
 CheckColors:
-	beq a5,zero,EndCheckColors
+	beq a4,zero,EndCheckColors
 	li s6,2
-	beq a5,s6,IceColors
+	beq a4,s6,IceColors
 	
 FireColors: # 0 -> 0; 159 -> 103; 239 -> 183
 	li s6,159
