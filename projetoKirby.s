@@ -19,7 +19,7 @@ PlayerAnimState:.half 0
 # 0 = vazio,  1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = inimigo 1 na boca, 5 = inimigo 2 na boca
 # 6 = transicao inicio eat, 7 = transicao cancelar eat, 8 = transicao engolir, 9 = transicao inflar, 10 = transicao soltar ar, 11 = transicao soltar item
 # 12 = cheio sem poder, 13 = cheio com poder 1, 14 = cheio com poder 2
-PlayerPowState:	.word 0
+PlayerPowState:	.word 0		# 0 = vazio sem poder, 1 = fogo, 2 = gelo, 3 = inimigo simples na boca, 4 = inimigo fogo na boca, 5 = inimigo gelo na boca
 PlayerAnim:	.half 0
 PlayerOldAnim:	.half 0
 PlayerAnimCount:.half 0
@@ -27,7 +27,7 @@ PlayerAnimTransit:.half 0
 PlayerLock:	.word 0		# 0 = movimentacao livre, 1 = controles travados (por enquanto apenas durante o ataque)
 PlayerMaxFrame:	.word 0		# duracao do sprite atual em frames, se for 0 sera um sprite sem animacao
 PlayerSprite:	.word 0		# endereco para o sprite atual
-PlayerColSprite:.word 0		# endereceo para o sprite atual de colisao
+PlayerColSprite:.word 0		# endereco para o sprite atual de colisao
 PlayerLastFrame:.word 0		# contador de frames para comparacao
 PlayerObjDelay: .word 0
 
@@ -39,7 +39,8 @@ PlayerObjDelay: .word 0
 .eqv playerDeaccX 10
 .eqv playerFlyPow -450
 .eqv playerJumpPow -600
-.eqv PlayerFlyIndex 12
+.eqv playerFlyIndex 12
+.eqv playerMouthIndex 3
 
 .eqv gravityAcc 25
 
@@ -257,6 +258,8 @@ NewInstance:
 	beq a0,t0,BuildIce
 	li t0,5
 	beq a0,t0,BuildPullArea
+	li t0,6
+	beq a0,t0,BuildAir
 	
 BuildDust:
 	# s0 tem o endereco inicial das variaveis do objeto
@@ -336,7 +339,24 @@ BuildPullArea:
 	
 	sh zero,10(s0) # movePat
 	
-	li t0,15
+	li t0,5
+	sh t0,12(s0) # lifeFrames
+	
+	sh zero,14(s0) # anim
+	
+	j BuildNextObj
+	
+BuildAir:
+	# s0 tem o endereco inicial das variaveis do objeto
+	sw a0,0(s0) # id
+	
+	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
+	
+	sh a3,8(s0) # dir
+	
+	sh zero,10(s0) # movePat
+	
+	li t0,24
 	sh t0,12(s0) # lifeFrames
 	
 	sh zero,14(s0) # anim
@@ -403,6 +423,8 @@ DrawObjAtual:
 	beq s3,t0,DrawIce
 	li t0,5
 	beq s3,t0,DrawPullArea
+	li t0,6
+	beq s3,t0,DrawAir
 
 	j DrawNextObj
 
@@ -505,6 +527,46 @@ DrawTinyDustRight:
 	addi t0,s8,2
 	beq t0,zero,DrawObjReady
 	la a0,tinyDust
+	
+	j DrawObjReady
+	
+DrawAir:	
+	li t1,12 # offset inicial do ar nao e salvo
+
+	li t0,16
+	li t2,4 # de 28 a 19
+	bgt s8,t0,DoneAirSpeed
+	li t0,12
+	li t2,2 # de 16 a 13
+	bgt s8,t0,DoneAirSpeed
+	li t0,8
+	li t2,1 # de 13 a 7
+	bgt s8,t0,DoneAirSpeed
+	li t2,0 # de 6 a 1
+DoneAirSpeed:
+	
+	bne s6,zero,DrawAirRight
+	sub t1,zero,t1
+	sub t2,zero,t2
+DrawAirRight:
+
+	add s4,s4,t2
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	
+	add s4,s4,t1
+	addi s5,s5,-2
+
+	slli t0,s5,16
+	add t0,t0,s4
+	sw t0,ObjTempPos,t1
+	la a1,ObjTempPos ### TODO revisar
+	
+	la a0,air
+	mv a2,zero
+	mv a3,s6
+	mv a4,zero
 	
 	j DrawObjReady
 	
@@ -672,6 +734,15 @@ SpecialKeys:
   	
   	li t0,'3'
   	beq t1,t0,SetPower2
+  	
+  	li t0,'4'
+  	beq t1,t0,SetPower3
+  	
+  	li t0,'5'
+  	beq t1,t0,SetPower4
+  	
+  	li t0,'6'
+  	beq t1,t0,SetPower5
 
 FimKeyPress:  	
   	ret
@@ -693,6 +764,21 @@ SetPower1:
 
 SetPower2:
 	li t0,2
+	sw t0,PlayerPowState,t1
+	j FimKeyPress
+	
+SetPower3:
+	li t0,3
+	sw t0,PlayerPowState,t1
+	j FimKeyPress
+	
+SetPower4:
+	li t0,4
+	sw t0,PlayerPowState,t1
+	j FimKeyPress
+	
+SetPower5:
+	li t0,5
 	sw t0,PlayerPowState,t1
 	j FimKeyPress
 
@@ -739,7 +825,7 @@ AttackCheck:
 	li t0,1
 	beq s6,t0,AttackEat
 	
-	li t0,PlayerFlyIndex
+	li t0,playerFlyIndex
 	bge s6,t0,AttackAir
 	j DoneAttack
 	
@@ -863,7 +949,7 @@ VerticalMove:
 	li t2,gravityAcc		# t2, velocidade de aceleracao da gravidade
 	li t3,playerMaxQuickFallSp	# t3, velocidade maxima de queda do jogador
 	
-	li t0,PlayerFlyIndex
+	li t0,playerFlyIndex
 	blt s6,t0,NotFlying
 	li t3,playerMaxSlowFallSp
 NotFlying:
@@ -888,7 +974,7 @@ LockedJump:
 	j DoneVerticalMv
 	
 CheckStartFly:
-	li s7,PlayerFlyIndex 
+	li s7,playerFlyIndex 
 	beq s8,zero,BackCheckStFly  # se a animacao inflando ja acabou o sprite deve ser o de voo comum
 	
 	li s7,9
@@ -896,8 +982,11 @@ CheckStartFly:
 	
 MoveFly:
 
-	li t0,PlayerFlyIndex
-	bge s6,t0,BoostFly ## se ja estiver voando continua com a animacao de voo (salva no CheckStartFly)
+	li t0,playerFlyIndex
+	bge s6,t0,BoostFly # se ja estiver voando continua com a animacao de voo (salva no CheckStartFly)
+	
+	li t0,playerMouthIndex
+	bge s10,t0,MoveJump # se estiver com item na boca nao ha o pulo infinito
 
 	li t0,9
 	bne s6,t0,StartMoveFly
@@ -916,7 +1005,7 @@ BoostFly:
 	j DoneVerticalMv
 
 MoveJump:
-	li t0,PlayerFlyIndex
+	li t0,playerFlyIndex
 	bge s6,t0,MoveFly
 
 	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo, impede que o jogador pule no ar apos usaro pulo unico
@@ -1178,7 +1267,7 @@ SkipSubTransit:
 SkipSubDelay:
 	
 	lhu s8,PlayerAnimState
-	
+	lhu s9,PlayerPowState
 	
 	bgt t3,zero,DefTransition
 
@@ -1188,11 +1277,13 @@ SkipSubDelay:
 	beq t0,t1,DefineAnimHorz
 	
 DefTransition:
-	lhu s9,PlayerPowState
+	
 	li t0,1
 	beq s9,t0,DefFireAnim
 	li t0,2
 	beq s9,t0,DefIceAnim
+	li t0,3
+	bge s9,t0,DefSpitAnim
 
 	li t0,1
 	li s1,11
@@ -1204,15 +1295,6 @@ DefTransition:
 	
 	li t0,7
 	li s1,12
-	beq s8,t0,DefinedAnim
-	
-EndDefFireIce:
-	li t0,9
-	li s1,9 # DefStartFly
-	beq s8,t0,DefinedAnim
-	
-	li t0,10
-	li s1,13 # DefAttackAir
 	beq s8,t0,DefinedAnim
 	
 DefFireAnim:
@@ -1237,16 +1319,28 @@ DefIceAnim:
 	
 	j EndDefFireIce
 	
-DefPlayerEat:	
-	li s1,11
+DefSpitAnim:
+	li s1,7 ### TODO
 	j DefinedAnim
+	
+EndDefFireIce:
+	li t0,9
+	li s1,9 # DefStartFly
+	beq s8,t0,DefinedAnim
+	
+	li t0,10
+	li s1,13 # DefAttackAir
+	beq s8,t0,DefinedAnim
 
 DefineAnimHorz:
 	lh t0,PlayerSpeedX
 	lh t1,PlayerAnimState
 	
 	li t2,4
-	bge t1,t2,DefBigKirbyHorz
+	bge t1,t2,DefFlyKirbyHorz
+	
+	li t2,playerMouthIndex
+	bge s9,t2,DefBigAnimHorz
 	
 	blt t0,zero,DefNegSpeedX
 	bgt t0,zero,DefPosSpeedX
@@ -1254,8 +1348,17 @@ DefineAnimHorz:
 	mv s1,zero
 	j DefinedAnim
 	
-DefBigKirbyHorz:
+DefFlyKirbyHorz:
 	li s1,6
+	j DefinedAnim
+	
+DefBigAnimHorz:
+	bne t0,zero,DefBigWalk
+	# Big Idle
+	li s1,7
+	j DefinedAnim
+DefBigWalk:
+	li s1,8
 	j DefinedAnim
 	
 DefNegSpeedX:
@@ -1276,14 +1379,17 @@ DefineAnimVert:
 	lh t1,PlayerAnimState
 	
 	li t2,4
-	bge t1,t2,DefAnimVertBig
+	bge t1,t2,DefAnimFly
+	
+	li t2,playerMouthIndex
+	bge s9,t2,DefBigWalk # animacao de pulo com item na boca e a mesma de andar
 
 	li s1,3
 	blt t0,zero,DefinedAnim  # quick jump
 	li s1,4
 	j DefinedAnim  # quick fall
-DefAnimVertBig:
-
+	
+DefAnimFly:
 	li s1,5
 	ble t0,zero,DefinedAnim  # slow jump
 	li s1,6
@@ -1361,7 +1467,7 @@ ContinueAnim:
 	li t0,12
 	beq s3,t0,PlayerEndEat
 	li t0,13
-	beq s3,t0,PlayerAttackAir
+	beq s3,t0,PlayerAirAttack
 	li t0,14
 	beq s3,t0,PlayerFireAttack
 	li t0,15
@@ -1554,6 +1660,13 @@ PlayerEat:
 	j DoneTinyDustObjs
 
 TinyDustObj2:
+	li a0,5 # id do objeto (area de puxar)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	mv a4,zero
+	jal BuildObject
+	
 	li a0,2 # id do objeto (poeira pequena)
 	li a1,1 # quantidade do objeto
 	lw a2,PlayerPosX
@@ -1571,6 +1684,12 @@ TinyDustObj2:
 	j DoneTinyDustObjs
 
 TinyDustObj3:	
+	li a0,5 # id do objeto (area de puxar)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	mv a4,zero
+	jal BuildObject
 
 	li a0,2 # id do objeto (poeira pequena)
 	li a1,1 # quantidade do objeto
@@ -1627,7 +1746,21 @@ PlayerStartFly:
 	la s7,playerCol
 	beq s1,t0,GotPlayerSprite
 	
-PlayerAttackAir:
+PlayerAirAttack:
+	lw t0,PlayerObjDelay
+	bgt t0,zero,DoneAirObj
+	
+	li t0,30
+	sw t0,PlayerObjDelay,t1
+
+	li a0,6 # id do objeto (ar)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	mv a4,zero
+	jal BuildObject
+DoneAirObj:
+
 	jal CheckNextSprAnim
 	andi s1,s1,3
 	
@@ -1800,7 +1933,7 @@ keepSprAnim:
 	
 #----------
 Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do sprite;
-		# a2 = sprite de colisao; a3 = 0 para esquerda ou 1 para direita; a4 = 0, 1 ou 2 para o caso espec�fico do jogador estar com poderes
+		# a2 = sprite de colisao; a3 = 0 para esquerda ou 1 para direita; a4 = 0, 1 ou 2 para o caso especifico do jogador estar com poderes
 	# s0, s1, s2, s3, s4, s5, s6 
 	
 	addi sp,sp,-32
@@ -1915,8 +2048,11 @@ LinhaReverse:
 	
 CheckColors:
 	beq a4,zero,EndCheckColors
+	li s6,1
+	beq a4,s6,FireColors
 	li s6,2
 	beq a4,s6,IceColors
+	j EndCheckColors
 	
 FireColors: # 0 -> 0; 159 -> 103; 239 -> 183
 	li s6,159

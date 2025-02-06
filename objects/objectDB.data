@@ -1,8 +1,9 @@
-.eqv DustID 1
-.eqv TinyDust 2
-.eqv FireID 3
-.eqv IceID 4
+.eqv dustID 1
+.eqv tinyDustID 2
+.eqv fireID 3
+.eqv iceID 4
 .eqv pullAreaID 5
+.eqv airID 6
 
 #.eqv FireSpeedX 4
 #.eqv FireSpeedY 1
