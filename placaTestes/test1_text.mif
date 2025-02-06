@@ -1,0 +1,1853 @@
+DEPTH = 16384;
+WIDTH = 32;
+ADDRESS_RADIX = HEX;
+DATA_RADIX = HEX;
+CONTENT
+BEGIN
+00000000 : ff2002b7;   % 88: 	li t0,0xff200604	# endereco que define qual frame esta sendo apresentado %
+00000001 : 60428293;   % 88:  %
+00000002 : 00100313;   % 89: 	li t1,1 %
+00000003 : 01e00db7;   % 92: 	li s11,0x01E00280 	# s11,  grid 640x480 %
+00000004 : 280d8d93;   % 92:  %
+00000005 : 1fd010ef;   % 98: 	jal PrintMapa		# imprime o mapa na inicializacao %
+00000006 : 0fc11297;   % 100: 	la t0,kirbyIdle0 %
+00000007 : 63828293;   % 100:  %
+00000008 : 0fc10317;   % 101: 	la t1,PlayerSprite %
+00000009 : 01830313;   % 101:  %
+0000000a : 00532023;   % 102: 	sw t0,0(t1) %
+0000000b : 0fc15297;   % 104: 	la t0,playerCol %
+0000000c : 85828293;   % 104:  %
+0000000d : 0fc10317;   % 105: 	la t1,PlayerColSprite %
+0000000e : 00830313;   % 105:  %
+0000000f : 00532023;   % 106: 	sw t0,0(t1) %
+00000010 : 0fc10517;   % 108: 	lw a0,PlayerSprite %
+00000011 : ff852503;   % 108:  %
+00000012 : 0fc10597;   % 109: 	la a1,PlayerPosX %
+00000013 : fc858593;   % 109:  %
+00000014 : 0fc10617;   % 110: 	lw a2,PlayerColSprite %
+00000015 : fec62603;   % 110:  %
+00000016 : 0fc10697;   % 111: 	lw a3,PlayerLastDir %
+00000017 : ff86a683;   % 111:  %
+00000018 : 0fc10717;   % 112: 	lw a4,PlayerPowState %
+00000019 : fc472703;   % 112:  %
+0000001a : 61c010ef;   % 113: 	jal Print		# imprime o jogador na inicializacao %
+0000001b : 01e00893;   % 115: 	li a7,30 %
+0000001c : 00000073;   % 116: 	ecall %
+0000001d : 0fc10297;   % 117: 	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock %
+0000001e : fea2a023;   % 117:  %
+0000001f : 04c000ef;   % 120: 	jal Clock %
+00000020 : 62c000ef;   % 122: 	jal ChangeFrame 	# incompleto %
+00000021 : 65c000ef;   % 124: 	jal KeyPress		# confere teclas apertadas, atualizando posicao do jogador e offset %
+00000022 : 74c000ef;   % 126: 	jal PlayerControls	# com base na ultima tecla apertada, salva em s10 pelo KeyPress, realiza as acoes de movimento do jogador %
+00000023 : 449000ef;   % 128: 	jal PlayerAnimation %
+00000024 : 181010ef;   % 134: 	jal PrintMapa		# imprime o mapa usando o offset %
+00000025 : 0fc10517;   % 140: 	lw a0,PlayerSprite %
+00000026 : fa452503;   % 140:  %
+00000027 : 0fc10597;   % 141: 	la a1,PlayerPosX %
+00000028 : f7458593;   % 141:  %
+00000029 : 0fc10617;   % 142: 	lw a2,PlayerColSprite %
+0000002a : f9862603;   % 142:  %
+0000002b : 0fc10697;   % 143: 	lw a3,PlayerLastDir %
+0000002c : fa46a683;   % 143:  %
+0000002d : 0fc10717;   % 144: 	lw a4,PlayerPowState %
+0000002e : f7072703;   % 144:  %
+0000002f : 5c8010ef;   % 145: 	jal Print		# imprime o jogador em sua nova posicao %
+00000030 : 208000ef;   % 147: 	jal DrawObjects %
+00000031 : fb9ff06f;   % 149: 	j Main %
+00000032 : 01e00893;   % 153: 	li a7,30 %
+00000033 : 00000073;   % 154: 	ecall			# salva o novo valor do tempo global %
+00000034 : 00a00433;   % 155: 	mv s0,a0 %
+00000035 : 0fc10297;   % 157: 	lw t0,LastGlblTime %
+00000036 : f802a283;   % 157:  %
+00000037 : 405502b3;   % 158: 	sub t0,a0,t0		# subtrai o novo tempo global pelo ultimo valor salvo, para definir quantos milissegundos passaram desde o ultimo frame %
+00000038 : 01400313;   % 169: 	li t1,20		# a cada 20 ms o frame avanca em 1, o que equivale a 50 fps %
+00000039 : fe62c2e3;   % 170: 	blt t0,t1,Clock		# enquanto nao avancar o frame o codigo fica nesse loop %
+0000003a : 0fc10297;   % 171: 	sw s0,LastGlblTime,t0	# atualiza o novo valor de tempo global %
+0000003b : f682a623;   % 171:  %
+0000003c : 0fc10497;   % 173: 	lw s1,FrameCount %
+0000003d : f684a483;   % 173:  %
+0000003e : 00148493;   % 174: 	addi s1,s1,1 %
+0000003f : 0fc10297;   % 175: 	sw s1,FrameCount,t0 	# avanca o contador de frames %
+00000040 : f492ae23;   % 175:  %
+00000041 : 0fc10517;   % 181: 	lhu a0,PlayerAnimCount %
+00000042 : f2855503;   % 181:  %
+00000043 : 00100893;   % 182: 	li a7,1 %
+00000044 : 0fc10517;   % 185: 	la a0,endl %
+00000045 : f5450513;   % 185:  %
+00000046 : 00400893;   % 186: 	li a7,4 %
+00000047 : 0fc10517;   % 189: 	lhu a0,PlayerAnimTransit %
+00000048 : f1255503;   % 189:  %
+00000049 : 00100893;   % 190: 	li a7,1 %
+0000004a : 0fc10517;   % 193: 	la a0,endl %
+0000004b : f3c50513;   % 193:  %
+0000004c : 00400893;   % 194: 	li a7,4 %
+0000004d : 0fc10517;   % 197: 	lhu a0,PlayerPowState %
+0000004e : ef055503;   % 197:  %
+0000004f : 00100893;   % 198: 	li a7,1 %
+00000050 : 0fc10517;   % 201: 	la a0,endl %
+00000051 : f2450513;   % 201:  %
+00000052 : 00400893;   % 202: 	li a7,4 %
+00000053 : 0fc10517;   % 205: 	lhu a0,PlayerAnim %
+00000054 : edc55503;   % 205:  %
+00000055 : 00100893;   % 206: 	li a7,1 %
+00000056 : 0fc10517;   % 209: 	la a0,endl %
+00000057 : f0c50513;   % 209:  %
+00000058 : 00400893;   % 210: 	li a7,4 %
+00000059 : 0fc10517;   % 213: 	la a0,endl %
+0000005a : f0050513;   % 213:  %
+0000005b : 00400893;   % 214: 	li a7,4 %
+0000005c : 00008067;   % 217: 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps %
+0000005d : ff010113;   % 222: 	addi sp,sp,-16 %
+0000005e : 00112023;   % 223: 	sw ra,0(sp) %
+0000005f : 00812223;   % 224: 	sw s0,4(sp) %
+00000060 : 00912423;   % 225: 	sw s1,8(sp) %
+00000061 : 01212623;   % 226: 	sw s2,12(sp) %
+00000062 : 0fc14417;   % 228: 	la s0,Obj0ID %
+00000063 : ee440413;   % 228:  %
+00000064 : 000004b3;   % 229: 	mv s1,zero			# s1, contador de objetos geral %
+00000065 : 00042903;   % 232: 	lw s2,0(s0) %
+00000066 : 02090063;   % 233: 	beq s2,zero,NewInstance %
+00000067 : 0040006f;   % 234: 	j BuildNextObj %
+00000068 : 00148493;   % 237: 	addi s1,s1,1 %
+00000069 : 00a00293;   % 238: 	li t0,10 %
+0000006a : 10548463;   % 239: 	beq s1,t0,FimBuildObject %
+0000006b : 10058263;   % 240: 	beq a1,zero,FimBuildObject %
+0000006c : 01040413;   % 242: 	addi s0,s0,16 %
+0000006d : fe1ff06f;   % 243: 	j CheckBuildObjs %
+0000006e : fff58593;   % 246: 	addi a1,a1,-1 %
+0000006f : 00100893;   % 248: 	li a7,1 %
+00000070 : 00100293;   % 251: 	li t0,1 %
+00000071 : 02550663;   % 252: 	beq a0,t0,BuildDust %
+00000072 : 00200293;   % 253: 	li t0,2 %
+00000073 : 04550263;   % 254: 	beq a0,t0,BuildTinyDust %
+00000074 : 00300293;   % 255: 	li t0,3 %
+00000075 : 04550e63;   % 256: 	beq a0,t0,BuildFire %
+00000076 : 00400293;   % 257: 	li t0,4 %
+00000077 : 06550a63;   % 258: 	beq a0,t0,BuildIce %
+00000078 : 00500293;   % 259: 	li t0,5 %
+00000079 : 08550663;   % 260: 	beq a0,t0,BuildPullArea %
+0000007a : 00600293;   % 261: 	li t0,6 %
+0000007b : 0a550263;   % 262: 	beq a0,t0,BuildAir %
+0000007c : 00a42023;   % 266: 	sw a0,0(s0) # id %
+0000007d : 00c42223;   % 268: 	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia %
+0000007e : 00d41423;   % 270: 	sh a3,8(s0) # dir %
+0000007f : 00041523;   % 272: 	sh zero,10(s0) # movePat %
+00000080 : 00400293;   % 274: 	li t0,4 %
+00000081 : 00541623;   % 275: 	sh t0,12(s0) # lifeFrames %
+00000082 : 00041723;   % 277: 	sh zero,14(s0) # anim %
+00000083 : f95ff06f;   % 279: 	j BuildNextObj %
+00000084 : 00a42023;   % 283: 	sw a0,0(s0) # id %
+00000085 : 00c42223;   % 285: 	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia %
+00000086 : 00d41423;   % 287: 	sh a3,8(s0) # dir %
+00000087 : 00e41523;   % 289: 	sh a4,10(s0) # movePat # a4 = 0, 1, 2, 3 -> esq cima, dir baixo, dir cima, esq baixo  %
+00000088 : 00500293;   % 291: 	li t0,5 %
+00000089 : 00541623;   % 292: 	sh t0,12(s0) # lifeFrames %
+0000008a : 00041723;   % 294: 	sh zero,14(s0) # anim %
+0000008b : f75ff06f;   % 296: 	j BuildNextObj %
+0000008c : 00a42023;   % 300: 	sw a0,0(s0) # id %
+0000008d : 00c42223;   % 302: 	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia %
+0000008e : 00d41423;   % 304: 	sh a3,8(s0) # dir %
+0000008f : 00e41523;   % 306: 	sh a4,10(s0) # movePat, para o fogo: 0 = para cima, 1 = para baixo %
+00000090 : 00a00293;   % 308: 	li t0,10 %
+00000091 : 00541623;   % 309: 	sh t0,12(s0) # lifeFrames %
+00000092 : 00041723;   % 311: 	sh zero,14(s0) # anim %
+00000093 : f55ff06f;   % 313: 	j BuildNextObj %
+00000094 : 00a42023;   % 317: 	sw a0,0(s0) # id %
+00000095 : 00c42223;   % 319: 	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia %
+00000096 : 00d41423;   % 321: 	sh a3,8(s0) # dir %
+00000097 : 00041523;   % 323: 	sh zero,10(s0) # movePat %
+00000098 : 00800293;   % 325: 	li t0,8 %
+00000099 : 00541623;   % 326: 	sh t0,12(s0) # lifeFrames %
+0000009a : 00041723;   % 328: 	sh zero,14(s0) # anim %
+0000009b : f35ff06f;   % 330: 	j BuildNextObj %
+0000009c : 00a42023;   % 334: 	sw a0,0(s0) # id %
+0000009d : 00c42223;   % 336: 	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia %
+0000009e : 00d41423;   % 338: 	sh a3,8(s0) # dir %
+0000009f : 00041523;   % 340: 	sh zero,10(s0) # movePat %
+000000a0 : 00500293;   % 342: 	li t0,5 %
+000000a1 : 00541623;   % 343: 	sh t0,12(s0) # lifeFrames %
+000000a2 : 00041723;   % 345: 	sh zero,14(s0) # anim %
+000000a3 : f15ff06f;   % 347: 	j BuildNextObj %
+000000a4 : 00a42023;   % 351: 	sw a0,0(s0) # id %
+000000a5 : 00c42223;   % 353: 	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia %
+000000a6 : 00d41423;   % 355: 	sh a3,8(s0) # dir %
+000000a7 : 00041523;   % 357: 	sh zero,10(s0) # movePat %
+000000a8 : 01800293;   % 359: 	li t0,24 %
+000000a9 : 00541623;   % 360: 	sh t0,12(s0) # lifeFrames %
+000000aa : 00041723;   % 362: 	sh zero,14(s0) # anim %
+000000ab : ef5ff06f;   % 364: 	j BuildNextObj %
+000000ac : 00012083;   % 368: 	lw ra,0(sp) %
+000000ad : 00412403;   % 369: 	lw s0,4(sp) %
+000000ae : 00812483;   % 370: 	lw s1,8(sp) %
+000000af : 00c12903;   % 371: 	lw s2,12(sp) %
+000000b0 : 01010113;   % 372: 	addi sp,sp,16 %
+000000b1 : 00008067;   % 374: 	ret %
+000000b2 : ffc10113;   % 379: 	addi sp,sp,-4 %
+000000b3 : 00112023;   % 380: 	sw ra,0(sp) %
+000000b4 : 0fc14417;   % 382: 	la s0,Obj0ID %
+000000b5 : d9c40413;   % 382:  %
+000000b6 : 000004b3;   % 383: 	mv s1,zero			# s1, contador de objetos geral %
+000000b7 : 00042903;   % 386: 	lw s2,0(s0) %
+000000b8 : 01200533;   % 388: 	mv a0,s2 %
+000000b9 : 00100893;   % 389: 	li a7,1 %
+000000ba : 0fc10517;   % 392: 	la a0,endl %
+000000bb : d7c50513;   % 392:  %
+000000bc : 00400893;   % 393: 	li a7,4 %
+000000bd : 00091c63;   % 396: 	bne s2,zero,DrawObjAtual %
+000000be : 00148493;   % 399: 	addi s1,s1,1 %
+000000bf : 00a00293;   % 400: 	li t0,10 %
+000000c0 : 38548a63;   % 401: 	beq s1,t0,FimDrawObjects %
+000000c1 : 01040413;   % 403: 	addi s0,s0,16 %
+000000c2 : fd5ff06f;   % 404: 	j IterateDrawObjs %
+000000c3 : 00042983;   % 408: 	lw s3,0(s0) # ID %
+000000c4 : 00445a03;   % 409: 	lhu s4,4(s0) # PosX %
+000000c5 : 00645a83;   % 410: 	lhu s5,6(s0) # PosY %
+000000c6 : 00845b03;   % 411: 	lhu s6,8(s0) # Dir %
+000000c7 : 00a45b83;   % 412: 	lhu s7,10(s0) # MovePat %
+000000c8 : 00c45c03;   % 413: 	lhu s8,12(s0) # LifeFrames %
+000000c9 : 00e45c83;   % 414: 	lhu s9,14(s0) # Anim %
+000000ca : 00100293;   % 416: 	li t0,1 %
+000000cb : 02598863;   % 417: 	beq s3,t0,DrawDust %
+000000cc : 00200293;   % 418: 	li t0,2 %
+000000cd : 08598063;   % 419: 	beq s3,t0,DrawTinyDust %
+000000ce : 00300293;   % 420: 	li t0,3 %
+000000cf : 1e598c63;   % 421: 	beq s3,t0,DrawFire %
+000000d0 : 00400293;   % 422: 	li t0,4 %
+000000d1 : 28598663;   % 423: 	beq s3,t0,DrawIce %
+000000d2 : 00500293;   % 424: 	li t0,5 %
+000000d3 : 2c598c63;   % 425: 	beq s3,t0,DrawPullArea %
+000000d4 : 00600293;   % 426: 	li t0,6 %
+000000d5 : 16598263;   % 427: 	beq s3,t0,DrawAir %
+000000d6 : fa1ff06f;   % 429: 	j DrawNextObj %
+000000d7 : 00c00293;   % 433: 	li t0,12 %
+000000d8 : 000b0463;   % 434: 	beq s6,zero,DustBreakRtoL %
+000000d9 : ff400293;   % 435: 	li t0,-12 %
+000000da : 005a0a33;   % 437: 	add s4,s4,t0 # define em qual lado do kirby vai aparecer %
+000000db : 004a8313;   % 439: 	addi t1,s5,4 %
+000000dc : 01031293;   % 440: 	slli t0,t1,16 %
+000000dd : 014282b3;   % 441: 	add t0,t0,s4 %
+000000de : 0fc10317;   % 442: 	sw t0,ObjTempPos,t1 %
+000000df : ce532423;   % 442:  %
+000000e0 : 0fc10597;   % 443: 	la a1,ObjTempPos ### TODO revisar %
+000000e1 : ce058593;   % 443:  %
+000000e2 : 0fc16617;   % 445: 	la a2,emptyCol %
+000000e3 : 8ec60613;   % 445:  %
+000000e4 : 016006b3;   % 446: 	mv a3,s6 %
+000000e5 : 00000733;   % 447: 	mv a4,zero %
+000000e6 : 0fc14517;   % 449: 	la a0,dust0 # frames com vida 4 e 3 %
+000000e7 : d7450513;   % 449:  %
+000000e8 : 00200293;   % 450: 	li t0,2 %
+000000e9 : 2d82c263;   % 451: 	bgt s8,t0,DrawObjReady %
+000000ea : 0fc14517;   % 452: 	la a0,dust1 # frames com vida 2 e 1 %
+000000eb : df050513;   % 452:  %
+000000ec : 2b80006f;   % 453: 	j DrawObjReady %
+000000ed : 020b8663;   % 456: 	beq s7,zero,DrawTinyLU # 0 = esq cima %
+000000ee : 00100293;   % 457: 	li t0,1 %
+000000ef : 025b8c63;   % 458: 	beq s7,t0,DrawTinyMU # 1 = meio cima %
+000000f0 : 00200293;   % 459: 	li t0,2 %
+000000f1 : 045b8263;   % 460: 	beq s7,t0,DrawTinyRU # 2 = dir cima %
+000000f2 : 00300293;   % 461: 	li t0,3 %
+000000f3 : 045b8863;   % 462: 	beq s7,t0,DrawTinyLD # 3 = esq baixo %
+000000f4 : 00400293;   % 463: 	li t0,4 %
+000000f5 : 045b8e63;   % 464: 	beq s7,t0,DrawTinyMD # 4 = meio baixo %
+000000f6 : 00500293;   % 465: 	li t0,5 %
+000000f7 : 065b8463;   % 466: 	beq s7,t0,DrawTinyRD # 5 = dir baixo  %
+000000f8 : 01400313;   % 468: 	li t1,20 %
+000000f9 : ff600393;   % 469: 	li t2,-10 %
+000000fa : ffe00e13;   % 470: 	li t3,-2 %
+000000fb : 001a8a93;   % 471: 	addi s5,s5,1 %
+000000fc : 0640006f;   % 472: 	j DoneTinyPos %
+000000fd : 02400313;   % 474: 	li t1,36 %
+000000fe : ff600393;   % 475: 	li t2,-10 %
+000000ff : ffc00e13;   % 476: 	li t3,-4 %
+00000100 : 001a8a93;   % 477: 	addi s5,s5,1 %
+00000101 : 0500006f;   % 478: 	j DoneTinyPos %
+00000102 : 03400313;   % 480: 	li t1,52 %
+00000103 : ff400393;   % 481: 	li t2,-12 %
+00000104 : ffd00e13;   % 482: 	li t3,-3 %
+00000105 : 001a8a93;   % 483: 	addi s5,s5,1 %
+00000106 : 03c0006f;   % 484: 	j DoneTinyPos %
+00000107 : 01400313;   % 486: 	li t1,20 %
+00000108 : 00600393;   % 487: 	li t2,6 %
+00000109 : ffe00e13;   % 488: 	li t3,-2 %
+0000010a : fffa8a93;   % 489: 	addi s5,s5,-1 %
+0000010b : 0280006f;   % 490: 	j DoneTinyPos %
+0000010c : 02400313;   % 492: 	li t1,36 %
+0000010d : 00600393;   % 493: 	li t2,6 %
+0000010e : ffc00e13;   % 494: 	li t3,-4 %
+0000010f : fffa8a93;   % 495: 	addi s5,s5,-1 %
+00000110 : 0140006f;   % 496: 	j DoneTinyPos %
+00000111 : 03400313;   % 498: 	li t1,52 %
+00000112 : 00600393;   % 499: 	li t2,6 %
+00000113 : ffd00e13;   % 500: 	li t3,-3 %
+00000114 : fffa8a93;   % 501: 	addi s5,s5,-1 %
+00000115 : 000b1663;   % 504: 	bne s6,zero,DrawTinyDustRight %
+00000116 : 40600333;   % 505: 	sub t1,zero,t1 # se jogador estiver para a esquerda inverte as posicoes horizontais %
+00000117 : 41c00e33;   % 506: 	sub t3,zero,t3 %
+00000118 : 01ca0a33;   % 509: 	add s4,s4,t3 %
+00000119 : 01441223;   % 511: 	sh s4,4(s0) # PosX %
+0000011a : 01541323;   % 512: 	sh s5,6(s0) # PosY %
+0000011b : 006a0a33;   % 514: 	add s4,s4,t1 %
+0000011c : 007a8ab3;   % 515: 	add s5,s5,t2 %
+0000011d : 010a9293;   % 517: 	slli t0,s5,16 %
+0000011e : 014282b3;   % 518: 	add t0,t0,s4 %
+0000011f : 0fc10317;   % 519: 	sw t0,ObjTempPos,t1 %
+00000120 : be532223;   % 519:  %
+00000121 : 0fc10597;   % 520: 	la a1,ObjTempPos ### TODO revisar %
+00000122 : bdc58593;   % 520:  %
+00000123 : 0fc15617;   % 522: 	la a2,emptyCol %
+00000124 : 7e860613;   % 522:  %
+00000125 : 016006b3;   % 523: 	mv a3,s6 %
+00000126 : 00000733;   % 524: 	mv a4,zero %
+00000127 : 0fc14517;   % 526: 	la a0,tinyDust0 %
+00000128 : 35050513;   % 526:  %
+00000129 : 002c7293;   % 527: 	andi t0,s8,2 %
+0000012a : 1c028063;   % 528: 	beq t0,zero,DrawObjReady %
+0000012b : 0fc14517;   % 529: 	la a0,tinyDust1 %
+0000012c : 38c50513;   % 529:  %
+0000012d : 1b40006f;   % 531: 	j DrawObjReady %
+0000012e : 00c00313;   % 534: 	li t1,12 # offset inicial do ar nao e salvo %
+0000012f : 01000293;   % 536: 	li t0,16 %
+00000130 : 00400393;   % 537: 	li t2,4 # de 28 a 19 %
+00000131 : 0382c063;   % 538: 	bgt s8,t0,DoneAirSpeed %
+00000132 : 00c00293;   % 539: 	li t0,12 %
+00000133 : 00200393;   % 540: 	li t2,2 # de 16 a 13 %
+00000134 : 0182ca63;   % 541: 	bgt s8,t0,DoneAirSpeed %
+00000135 : 00800293;   % 542: 	li t0,8 %
+00000136 : 00100393;   % 543: 	li t2,1 # de 13 a 7 %
+00000137 : 0182c463;   % 544: 	bgt s8,t0,DoneAirSpeed %
+00000138 : 00000393;   % 545: 	li t2,0 # de 6 a 1 %
+00000139 : 000b1663;   % 548: 	bne s6,zero,DrawAirRight %
+0000013a : 40600333;   % 549: 	sub t1,zero,t1 %
+0000013b : 407003b3;   % 550: 	sub t2,zero,t2 %
+0000013c : 007a0a33;   % 553: 	add s4,s4,t2 %
+0000013d : 01441223;   % 555: 	sh s4,4(s0) # atualiza PosX %
+0000013e : 01541323;   % 556: 	sh s5,6(s0) # atualiza PosY %
+0000013f : 006a0a33;   % 558: 	add s4,s4,t1 %
+00000140 : ffea8a93;   % 559: 	addi s5,s5,-2 %
+00000141 : 010a9293;   % 561: 	slli t0,s5,16 %
+00000142 : 014282b3;   % 562: 	add t0,t0,s4 %
+00000143 : 0fc10317;   % 563: 	sw t0,ObjTempPos,t1 %
+00000144 : b4532a23;   % 563:  %
+00000145 : 0fc10597;   % 564: 	la a1,ObjTempPos ### TODO revisar %
+00000146 : b4c58593;   % 564:  %
+00000147 : 0fc14517;   % 566: 	la a0,air %
+00000148 : d0850513;   % 566:  %
+00000149 : 00000633;   % 567: 	mv a2,zero %
+0000014a : 016006b3;   % 568: 	mv a3,s6 %
+0000014b : 00000733;   % 569: 	mv a4,zero %
+0000014c : 1380006f;   % 571: 	j DrawObjReady %
+0000014d : 000b0863;   % 574: 	beq s6,zero,DrawFireLeft %
+0000014e : 004a0a13;   % 575: 	addi s4,s4,4 %
+0000014f : 00ca0313;   % 576: 	addi t1,s4,12 # offset inicial do fogo nao e salvo %
+00000150 : 00c0006f;   % 577: 	j DoneDrawFireHor %
+00000151 : ffca0a13;   % 579: 	addi s4,s4,-4 %
+00000152 : ff4a0313;   % 580: 	addi t1,s4,-12 # offset inicial do fogo nao e salvo %
+00000153 : 001c7293;   % 583: 	andi t0,s8,1 %
+00000154 : 00029a63;   % 584: 	bne t0,zero,DoneDrawFireVert # divide a movimentacao vertical por 1 %
+00000155 : 000b8663;   % 585: 	beq s7,zero,DrawFireDown %
+00000156 : fffa8a93;   % 586: 	addi s5,s5,-1 %
+00000157 : 0080006f;   % 587: 	j DoneDrawFireVert %
+00000158 : 001a8a93;   % 589: 	addi s5,s5,1 %
+00000159 : 01441223;   % 592: 	sh s4,4(s0) # atualiza PosX %
+0000015a : 01541323;   % 593: 	sh s5,6(s0) # atualiza PosY %
+0000015b : 010a9293;   % 595: 	slli t0,s5,16 %
+0000015c : 006282b3;   % 596: 	add t0,t0,t1 %
+0000015d : 0fc10317;   % 597: 	sw t0,ObjTempPos,t1 %
+0000015e : ae532623;   % 597:  %
+0000015f : 0fc10597;   % 598: 	la a1,ObjTempPos ### TODO revisar %
+00000160 : ae458593;   % 598:  %
+00000161 : 0fc15617;   % 600: 	la a2,emptyCol %
+00000162 : 6f060613;   % 600:  %
+00000163 : 016006b3;   % 601: 	mv a3,s6 %
+00000164 : 00000733;   % 602: 	mv a4,zero %
+00000165 : 0fc14517;   % 604: 	la a0,fire0 # frames com vida 8 e 7 %
+00000166 : d9c50513;   % 604:  %
+00000167 : 00600293;   % 605: 	li t0,6  %
+00000168 : 0d82c463;   % 606: 	bgt s8,t0,DrawObjReady %
+00000169 : 0fc14517;   % 607: 	la a0,fire1 # frames com vida 6 e 5 %
+0000016a : e9850513;   % 607:  %
+0000016b : 00400293;   % 608: 	li t0,4 %
+0000016c : 0b82cc63;   % 609: 	bgt s8,t0,DrawObjReady %
+0000016d : 0fc14517;   % 610: 	la a0,fire2 # frames com vida 4 e 3 %
+0000016e : f9450513;   % 610:  %
+0000016f : 00200293;   % 611: 	li t0,2  %
+00000170 : 0b82c463;   % 612: 	bgt s8,t0,DrawObjReady %
+00000171 : 0fc14517;   % 613: 	la a0,fire3 # frames com vida 2 e 1 %
+00000172 : 09050513;   % 613:  %
+00000173 : 09c0006f;   % 614: 	j DrawObjReady %
+00000174 : 010a9293;   % 617: 	slli t0,s5,16 %
+00000175 : 014282b3;   % 618: 	add t0,t0,s4 %
+00000176 : 0fc10317;   % 619: 	sw t0,ObjTempPos,t1 %
+00000177 : a8532423;   % 619:  %
+00000178 : 0fc10597;   % 620: 	la a1,ObjTempPos ### TODO revisar %
+00000179 : a8058593;   % 620:  %
+0000017a : 0fc15617;   % 622: 	la a2,emptyCol %
+0000017b : 68c60613;   % 622:  %
+0000017c : 016006b3;   % 623: 	mv a3,s6 %
+0000017d : 00000733;   % 624: 	mv a4,zero %
+0000017e : 0fc14517;   % 626: 	la a0,ice # frames com vida 8 a 5 %
+0000017f : 16850513;   % 626:  %
+00000180 : 00400293;   % 627: 	li t0,4  %
+00000181 : 0782c263;   % 628: 	bgt s8,t0,DrawObjReady %
+00000182 : 0fc14517;   % 629: 	la a0,dust0 # frames com vida 4 e 3 %
+00000183 : b0450513;   % 629:  %
+00000184 : 00200293;   % 630: 	li t0,2  %
+00000185 : 0582ca63;   % 631: 	bgt s8,t0,DrawObjReady %
+00000186 : 0fc14517;   % 632: 	la a0,dust1 # frames com vida 2 e 1 %
+00000187 : b8050513;   % 632:  %
+00000188 : 0480006f;   % 633: 	j DrawObjReady %
+00000189 : fd0a0a13;   % 636: 	addi s4,s4,-48 %
+0000018a : 000b0463;   % 637: 	beq s6,zero,DrawPullAreaLeft %
+0000018b : 040a0a13;   % 638: 	addi s4,s4,64 # corrige o offset inicial da area de puxar quando esta para a direitapara a direita %
+0000018c : ffaa8a93;   % 641: 	addi s5,s5,-6 # sprite da area de puxar deve ficar 46pixels para cima %
+0000018d : 010a9293;   % 642: 	slli t0,s5,16 %
+0000018e : 014282b3;   % 643: 	add t0,t0,s4 %
+0000018f : 0fc10317;   % 644: 	sw t0,ObjTempPos,t1 %
+00000190 : a2532223;   % 644:  %
+00000191 : 0fc10597;   % 645: 	la a1,ObjTempPos ### TODO revisar %
+00000192 : a1c58593;   % 645:  %
+00000193 : 0fc15617;   % 647: 	la a2,emptyCol ### %
+00000194 : 62860613;   % 647:  %
+00000195 : 016006b3;   % 648: 	mv a3,s6 %
+00000196 : 00000733;   % 649: 	mv a4,zero %
+00000197 : 0fc14517;   % 651: 	la a0,playerPullAreaCol # sempre o mesmo sprite %
+00000198 : 44050513;   % 651:  %
+00000199 : 0040006f;   % 652: 	j DrawObjReady %
+0000019a : 01c010ef;   % 655: 	jal Print %
+0000019b : 01800533;   % 657: 	mv a0,s8 ### %
+0000019c : 00100893;   % 658: 	li a7,1 %
+0000019d : 0fc10517;   % 661: 	la a0,endl %
+0000019e : 9f050513;   % 661:  %
+0000019f : 00400893;   % 662: 	li a7,4 %
+000001a0 : fffc0c13;   % 665: 	addi s8,s8,-1 %
+000001a1 : 01841623;   % 666: 	sh s8,12(s0) %
+000001a2 : c60c18e3;   % 667: 	bne s8,zero,DrawNextObj %
+000001a3 : 00042023;   % 668: 	sw zero,0(s0)	# define ID do objeto como 0 se tempo de vida dele acabar %
+000001a4 : c69ff06f;   % 670: 	j DrawNextObj %
+000001a5 : 00012083;   % 673: 	lw ra,0(sp) %
+000001a6 : 00410113;   % 674: 	addi sp,sp,4 # conferir %
+000001a7 : 0fc10517;   % 676: 	la a0,endl %
+000001a8 : 9c850513;   % 676:  %
+000001a9 : 00400893;   % 677: 	li a7,4 %
+000001aa : 00008067;   % 680: 	ret %
+000001ab : 0fc10417;   % 684: 	lw s0,BitmapFrame %
+000001ac : 95442403;   % 684:  %
+000001ad : 01445493;   % 685: 	srli s1,s0,20 %
+000001ae : 0014f493;   % 686: 	andi s1,s1,1 %
+000001af : ff2002b7;   % 688: 	li t0,0xff200604	# endereco que define qual frame esta sendo apresentado %
+000001b0 : 60428293;   % 688:  %
+000001b1 : 0092a023;   % 689: 	sw s1,0(t0)		# para visualizar o frame que acabou de ser desenhado %
+000001b2 : 001002b7;   % 691: 	li t0,0x00100000 %
+000001b3 : 00028293;   % 691:  %
+000001b4 : 00544433;   % 692: 	xor s0,s0,t0 %
+000001b5 : 0fc10297;   % 693: 	sw s0,BitmapFrame,t0 %
+000001b6 : 9282a623;   % 693:  %
+000001b7 : 00008067;   % 695: 	ret %
+000001b8 : ff2002b7;   % 699: 	li t0,0xFF200000		# carrega o endereco de controle do KDMMIO %
+000001b9 : 00028293;   % 699:  %
+000001ba : 0002a383;   % 700: 	lw t2,0(t0)			# Le bit de Controle Teclado %
+000001bb : 0013f393;   % 701: 	andi t2,t2,0x0001		# mascara o bit menos significativo %
+000001bc : 0042a303;   % 702: 	lw t1,4(t0)  			# le o valor da tecla %
+000001bd : 00039463;   % 704: 	bne t2,zero,ContinueKP	 %
+000001be : 00000333;   % 705: 	mv t1,zero			# se nenhuma tecla esta sendo apertada salva 0 como a tecla atual %
+000001bf : 0fc10297;   % 708: 	sw t1,LastKey,t0		# atualiza a ultima tecla pressionada %
+000001c0 : 9462a823;   % 708:  %
+000001c1 : 0fc10417;   % 710: 	lw s0,PlayerLock %
+000001c2 : 92c42403;   % 710:  %
+000001c3 : 02041463;   % 711: 	bne s0,zero,LockedPlayer %
+000001c4 : 06400293;   % 713: 	li t0,'d' %
+000001c5 : 00628863;   % 714: 	beq t0,t1,DirectionKey %
+000001c6 : 06100293;   % 715: 	li t0,'a' %
+000001c7 : 00628463;   % 716: 	beq t0,t1,DirectionKey %
+000001c8 : 0140006f;   % 717: 	j SpecialKeys %
+000001c9 : 06100293;   % 719: 	li t0,'a'	 %
+000001ca : 0062a3b3;   % 720: 	slt t2,t0,t1			# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1 %
+000001cb : 0fc10297;   % 721: 	sw t2,PlayerLastDir,t0		# serve para as animacoes %
+000001cc : 9272a223;   % 721:  %
+000001cd : 07000293;   % 726: 	li t0,'p' %
+000001ce : 02530c63;   % 727:   	beq t1,t0,EndGame %
+000001cf : 03100293;   % 729:   	li t0,'1' %
+000001d0 : 02530c63;   % 730:   	beq t1,t0,SetPower0 %
+000001d1 : 03200293;   % 732:   	li t0,'2' %
+000001d2 : 02530e63;   % 733:   	beq t1,t0,SetPower1 %
+000001d3 : 03300293;   % 735:   	li t0,'3' %
+000001d4 : 04530263;   % 736:   	beq t1,t0,SetPower2 %
+000001d5 : 03400293;   % 738:   	li t0,'4' %
+000001d6 : 04530663;   % 739:   	beq t1,t0,SetPower3 %
+000001d7 : 03500293;   % 741:   	li t0,'5' %
+000001d8 : 04530a63;   % 742:   	beq t1,t0,SetPower4 %
+000001d9 : 03600293;   % 744:   	li t0,'6' %
+000001da : 04530e63;   % 745:   	beq t1,t0,SetPower5 %
+000001db : 00008067;   % 748:   	ret %
+000001dc : 00a00893;   % 752: 	li a7,10 %
+000001dd : 00000073;   % 753: 	ecall				# metodo temporario de finalizacao do jogo %
+000001de : 0fc10317;   % 757: 	sw zero,PlayerPowState,t1 %
+000001df : 8a032623;   % 757:  %
+000001e0 : fedff06f;   % 758: 	j FimKeyPress %
+000001e1 : 00100293;   % 761: 	li t0,1 %
+000001e2 : 0fc10317;   % 762: 	sw t0,PlayerPowState,t1 %
+000001e3 : 88532e23;   % 762:  %
+000001e4 : fddff06f;   % 763: 	j FimKeyPress %
+000001e5 : 00200293;   % 766: 	li t0,2 %
+000001e6 : 0fc10317;   % 767: 	sw t0,PlayerPowState,t1 %
+000001e7 : 88532623;   % 767:  %
+000001e8 : fcdff06f;   % 768: 	j FimKeyPress %
+000001e9 : 00300293;   % 771: 	li t0,3 %
+000001ea : 0fc10317;   % 772: 	sw t0,PlayerPowState,t1 %
+000001eb : 86532e23;   % 772:  %
+000001ec : fbdff06f;   % 773: 	j FimKeyPress %
+000001ed : 00400293;   % 776: 	li t0,4 %
+000001ee : 0fc10317;   % 777: 	sw t0,PlayerPowState,t1 %
+000001ef : 86532623;   % 777:  %
+000001f0 : fadff06f;   % 778: 	j FimKeyPress %
+000001f1 : 00500293;   % 781: 	li t0,5 %
+000001f2 : 0fc10317;   % 782: 	sw t0,PlayerPowState,t1 %
+000001f3 : 84532e23;   % 782:  %
+000001f4 : f9dff06f;   % 783: 	j FimKeyPress %
+000001f5 : ffc10113;   % 787: 	addi sp,sp,-4 %
+000001f6 : 00112023;   % 788: 	sw ra,0(sp)			# pilha armazena apenas valor de retorno %
+000001f7 : 0fc10417;   % 790: 	lw s0,LastKey			# s0, valor da ultima tecla apertada %
+000001f8 : 87042403;   % 790:  %
+000001f9 : 0fc10497;   % 791: 	lhu s1,PlayerPosX		# s1, posicao X do jogador no mapa %
+000001fa : 82c4d483;   % 791:  %
+000001fb : 0fc10917;   % 792: 	lhu s2,PlayerPosY		# s2, posicao Y do jogador no mapa %
+000001fc : 82695903;   % 792:  %
+000001fd : 0fc10b17;   % 793: 	lhu s6,PlayerAnimState		# s6, valor de estado do jogador: 0 = vazio, 1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = cheio sem poder, 5 = inimigo 1 na boca, 6 = inimigo 2 na boca, 7 = cheio com poder 1, 8 = cheio com poder 2 %
+000001fe : 82eb5b03;   % 793:  %
+000001ff : 01600bb3;   % 794: 	mv s7,s6 %
+00000200 : 0fc10c17;   % 795: 	lhu s8,PlayerAnimTransit %
+00000201 : 82ec5c03;   % 795:  %
+00000202 : 0fc10c97;   % 796: 	lw s9,PlayerLock %
+00000203 : 828cac83;   % 796:  %
+00000204 : 0fc10d17;   % 797: 	lw s10,PlayerPowState %
+00000205 : 814d2d03;   % 797:  %
+00000206 : 012002b3;   % 799: 	mv t0,s2 %
+00000207 : 01029293;   % 800: 	slli t0,t0,16 %
+00000208 : 009282b3;   % 801: 	add t0,t0,s1 %
+00000209 : 0fc0f317;   % 802: 	sw t0,OldPlayerPos,t1		# atualiza OldPlayerPos %
+0000020a : 7e532823;   % 802:  %
+0000020b : 00600293;   % 804: 	li t0,6 %
+0000020c : 065b0263;   % 805: 	beq s6,t0,ContinueStartAttEat %
+0000020d : 00700293;   % 807: 	li t0,7 %
+0000020e : 0a5b0063;   % 808: 	beq s6,t0,EndAttackEat %
+0000020f : 00a00293;   % 810: 	li t0,10 %
+00000210 : 0c5b0263;   % 811: 	beq s6,t0,EndAttackAir %
+00000211 : 06500293;   % 813: 	li t0,'e' %
+00000212 : 00540863;   % 814: 	beq s0,t0,AttackCheck %
+00000213 : 00100293;   % 816: 	li t0,1 %
+00000214 : 065b0263;   % 817: 	beq s6,t0,KeepAttackEat %
+00000215 : 0c00006f;   % 819: 	j HorizontalMove %
+00000216 : 00000293;   % 822: 	li t0,0 %
+00000217 : 005b0c63;   % 823: 	beq s6,t0,StartAttackEat %
+00000218 : 00100293;   % 825: 	li t0,1 %
+00000219 : 025b0e63;   % 826: 	beq s6,t0,AttackEat %
+0000021a : 00c00293;   % 828: 	li t0,12 %
+0000021b : 085b5263;   % 829: 	bge s6,t0,AttackAir %
+0000021c : 0a40006f;   % 830: 	j DoneAttack %
+0000021d : 00100293;   % 833: 	li t0,1 %
+0000021e : 0fc0f317;   % 834: 	sw t0,PlayerLock,t1 %
+0000021f : 7a532c23;   % 834:  %
+00000220 : 00100293;   % 836: 	li t0,1 %
+00000221 : 005d0e63;   % 837: 	beq s10,t0,AttackEat # se estiver com a habilidade de fogo nao precisa da animacao de StartAttack %
+00000222 : 00a00c13;   % 839: 	li s8,10 %
+00000223 : 0fc0f317;   % 840: 	sh s8,PlayerAnimTransit,t1 %
+00000224 : 7b831123;   % 840:  %
+00000225 : 000c0663;   % 843: 	beq s8,zero,AttackEat %
+00000226 : 00600b93;   % 845: 	li s7,6 %
+00000227 : 0780006f;   % 846: 	j DoneAttack %
+00000228 : 01e00293;   % 849: 	li t0,30 %
+00000229 : 0fc0f317;   % 850: 	sh t0,PlayerAnimTransit,t1 %
+0000022a : 78531523;   % 850:  %
+0000022b : 00100b93;   % 852: 	li s7,1 %
+0000022c : 0640006f;   % 853: 	j DoneAttack %
+0000022d : 00100b93;   % 856: 	li s7,1 %
+0000022e : 05804e63;   % 857: 	bgt s8,zero,DoneAttack %
+0000022f : 00100293;   % 859: 	li t0,1 %
+00000230 : 025d0063;   % 860: 	beq s10,t0,EndAttFire # se estiver com a habilidade de fogo nao precisa da animacao de EndAttack %
+00000231 : 00700b93;   % 862: 	li s7,7 %
+00000232 : 00a00293;   % 863: 	li t0,10 %
+00000233 : 0fc0f317;   % 864: 	sh t0,PlayerAnimTransit,t1 %
+00000234 : 76531123;   % 864:  %
+00000235 : 0400006f;   % 865: 	j DoneAttack %
+00000236 : 00700b93;   % 868: 	li s7,7 %
+00000237 : 03804c63;   % 869: 	bgt s8,zero,DoneAttack %
+00000238 : 0fc0f317;   % 871: 	sw zero,PlayerLock,t1 %
+00000239 : 74032823;   % 871:  %
+0000023a : 00000b93;   % 873: 	li s7,0 %
+0000023b : 0280006f;   % 874: 	j DoneAttack %
+0000023c : 01e00293;   % 877: 	li t0,30 %
+0000023d : 0fc0f317;   % 878: 	sh t0,PlayerAnimTransit,t1 %
+0000023e : 72531d23;   % 878:  %
+0000023f : 00a00b93;   % 880: 	li s7,10 %
+00000240 : 0140006f;   % 881: 	j DoneAttack %
+00000241 : 00a00b93;   % 884: 	li s7,10 %
+00000242 : 01804663;   % 885: 	bgt s8,zero,DoneAttack %
+00000243 : 00000b93;   % 887: 	li s7,0 %
+00000244 : 0040006f;   % 888: 	j DoneAttack %
+00000245 : 0fc0fa17;   % 894: 	lh s4,PlayerSpeedX		# s4, velocidade X do jogador em seu valor completo %
+00000246 : 708a1a03;   % 894:  %
+00000247 : 00a00313;   % 895: 	li t1,10		# t1, velocidade de desaceleracao do jogador no eixo X  %
+00000248 : 06400393;   % 896: 	li t2,100		# t2, velocidade de aceleracao do jogador no eixo X %
+00000249 : 0c800e13;   % 897: 	li t3,200		# t3, velocidade maxima do jogador no eixo X %
+0000024a : 03404263;   % 900: 	bgt s4,zero,SlowRightToLeft	# se velocidade for positiva ou 0 vai para o proximo slow %
+0000024b : 000c9863;   % 901: 	bne s9,zero,LockedR %
+0000024c : 06100293;   % 902: 	li t0,'a' %
+0000024d : 02540c63;   % 903: 	beq s0,t0,MoveLeft		# se velocidade for negativa e 'a' esta apertado nao ha porque desacelerar %
+0000024e : 000a0a63;   % 904: 	beq s4,zero,SlowRightToLeft	# se velocidade for zero ainda precisa conferir se 'd' esta sendo apertado %
+0000024f : 006a0a33;   % 907: 	add s4,s4,t1 %
+00000250 : 05405863;   % 908: 	ble s4,zero,DoneHorizontalMv %
+00000251 : 00000a33;   % 909: 	mv s4,zero			# se a velocidade ficou positiva ao desacelerar precisa voltar para zero %
+00000252 : 0480006f;   % 910: 	j DoneHorizontalMv %
+00000253 : 000c9863;   % 913: 	bne s9,zero,LockedL %
+00000254 : 06400293;   % 914: 	li t0,'d' %
+00000255 : 02540663;   % 915: 	beq s0,t0,MoveRight		# se velocidade for positiva e 'd' esta apertado nao ha porque desacelerar %
+00000256 : 020a0c63;   % 916: 	beq s4,zero,DoneHorizontalMv	# se a velocidade for zero nesse ponto nao ha porque desacelerar o jogador %
+00000257 : 406a0a33;   % 919: 	sub s4,s4,t1 %
+00000258 : 03404863;   % 920: 	bgt s4,zero,DoneHorizontalMv %
+00000259 : 00000a33;   % 921: 	mv s4,zero			# se a velocidade ficou negativa ao desacelerar precisa voltar para zero %
+0000025a : 0280006f;   % 922: 	j DoneHorizontalMv		 %
+0000025b : 407a0a33;   % 925: 	sub s4,s4,t2			# aumenta velocidade para a esquerda %
+0000025c : 414002b3;   % 927: 	sub t0,zero,s4 %
+0000025d : 005e5e63;   % 928: 	ble t0,t3,DoneHorizontalMv %
+0000025e : 41c00a33;   % 929: 	sub s4,zero,t3			# velocidade se torna a velocidade maxima caso tenha a ultrapassado %
+0000025f : 0140006f;   % 930: 	j DoneHorizontalMv %
+00000260 : 007a0a33;   % 933: 	add s4,s4,t2			# aumenta velocidade para a direita %
+00000261 : 014e5663;   % 935: 	ble s4,t3,DoneHorizontalMv %
+00000262 : 01c00a33;   % 936: 	mv s4,t3			# velocidade se torna a velocidade maxima caso tenha a ultrapassado %
+00000263 : 0040006f;   % 937: 	j DoneHorizontalMv %
+00000264 : 0fc0f297;   % 940: 	sh s4,PlayerSpeedX,t0		# armazena a velocidade X completa do jogador (em centenas) %
+00000265 : 69429623;   % 940:  %
+00000266 : 06400293;   % 941: 	li t0,100 %
+00000267 : 025a4333;   % 942: 	div t1,s4,t0			# divide a velocidade por 100 para obter o numero de pixels a se mover %
+00000268 : 006484b3;   % 944: 	add s1,s1,t1			# adiciona a velocidade horizontal em pixels para a posicao do jogador %
+00000269 : 0fc0fa97;   % 947: 	lh s5,PlayerSpeedY		# s5, velocidade X do jogador em seu valor completo %
+0000026a : 67aa9a83;   % 947:  %
+0000026b : 0fc0f317;   % 948: 	lhu t1,PlayerGndState		# t1, variavel de estado do jogador %
+0000026c : 67435303;   % 948:  %
+0000026d : 01900393;   % 949: 	li t2,25		# t2, velocidade de aceleracao da gravidade %
+0000026e : 0c800e13;   % 950: 	li t3,200	# t3, velocidade maxima de queda do jogador %
+0000026f : 00c00293;   % 952: 	li t0,12 %
+00000270 : 005b4463;   % 953: 	blt s6,t0,NotFlying %
+00000271 : 06400e13;   % 954: 	li t3,100 %
+00000272 : 01901e63;   % 957: 	bne zero,s9,LockedJump %
+00000273 : 00900293;   % 959: 	li t0,9 %
+00000274 : 025b0263;   % 960: 	beq s6,t0,CheckStartFly %
+00000275 : 07700293;   % 963: 	li t0,'w' %
+00000276 : 02540663;   % 964: 	beq s0,t0,MoveFly %
+00000277 : 02000293;   % 966: 	li t0,' '			 %
+00000278 : 04540c63;   % 967: 	beq s0,t0,MoveJump		# pulo unico %
+00000279 : 06030463;   % 970: 	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo %
+0000027a : 060aca63;   % 972: 	blt s5,zero,DoneVerticalMv	# se o jogador estiver indo para cima o chao nao para ele (impede um snap que estava acontecendo) %
+0000027b : 00000ab3;   % 973: 	mv s5,zero 		 	# se o jogador nao estiver no ar ou tiver pulado, entao esta no chao e sua velocidade Y se torna zero %
+0000027c : 06c0006f;   % 974: 	j DoneVerticalMv %
+0000027d : 00c00b93;   % 977: 	li s7,12  %
+0000027e : fc0c0ee3;   % 978: 	beq s8,zero,BackCheckStFly  # se a animacao inflando ja acabou o sprite deve ser o de voo comum %
+0000027f : 00900b93;   % 980: 	li s7,9 %
+00000280 : fd5ff06f;   % 981: 	j BackCheckStFly %
+00000281 : 00c00293;   % 985: 	li t0,12 %
+00000282 : 025b5463;   % 986: 	bge s6,t0,BoostFly # se ja estiver voando continua com a animacao de voo (salva no CheckStartFly) %
+00000283 : 00300293;   % 988: 	li t0,3 %
+00000284 : 025d5463;   % 989: 	bge s10,t0,MoveJump # se estiver com item na boca nao ha o pulo infinito %
+00000285 : 00900293;   % 991: 	li t0,9 %
+00000286 : 005b1463;   % 992: 	bne s6,t0,StartMoveFly %
+00000287 : 0140006f;   % 995: 	j BoostFly %
+00000288 : 00900b93;   % 998: 	li s7,9 # transicao inflar %
+00000289 : 01400293;   % 1000: 	li t0,20 %
+0000028a : 0fc0f317;   % 1001: 	sh t0,PlayerAnimTransit,t1 %
+0000028b : 60531323;   % 1001:  %
+0000028c : e3e00a93;   % 1004: 	li s5,-450 %
+0000028d : 0280006f;   % 1005: 	j DoneVerticalMv %
+0000028e : 00c00293;   % 1008: 	li t0,12 %
+0000028f : fc5b54e3;   % 1009: 	bge s6,t0,MoveFly %
+00000290 : 00030663;   % 1011: 	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo, impede que o jogador pule no ar apos usaro pulo unico %
+00000291 : da800a93;   % 1013: 	li s5,-600 %
+00000292 : 0140006f;   % 1014: 	j DoneVerticalMv %
+00000293 : 007a8ab3;   % 1017: 	add s5,s5,t2			# adiciona a gravidade a velocidade do jogador %
+00000294 : 015e5663;   % 1018: 	ble s5,t3,DoneVerticalMv %
+00000295 : 01c00ab3;   % 1019: 	mv s5,t3			# velocidade se torna a velocidade maxima caso tenha a ultrapassado %
+00000296 : 0040006f;   % 1020: 	j DoneVerticalMv %
+00000297 : 0fc0f297;   % 1023: 	sh s5,PlayerSpeedY,t0		# armazena a velocidade Y completa do jogador (em centenas) %
+00000298 : 5d529123;   % 1023:  %
+00000299 : 0fc0f297;   % 1024: 	sh s7,PlayerAnimState,t0 %
+0000029a : 5b729f23;   % 1024:  %
+0000029b : 06400293;   % 1025: 	li t0,100 %
+0000029c : 025ac333;   % 1026: 	div t1,s5,t0			# divide a velocidade por 100 para obter o numero de pixels a se mover %
+0000029d : ffc00293;   % 1028: 	li t0,-4 %
+0000029e : 00535463;   % 1030: 	bge t1,t0,DontLimitJump		# como o jogador nao pode se mover mais de 4 pixels por frame para as colisoes funcionarem, a vel do pulo fica limitada a -4 %
+0000029f : 00500333;   % 1031: 	mv t1,t0 %
+000002a0 : 00690933;   % 1034: 	add s2,s2,t1			# adiciona a velocidade vertical em pixels para a posicao do jogador %
+000002a1 : 01b002b3;   % 1037: 	mv t0,s11 %
+000002a2 : 01029293;   % 1038: 	slli t0,t0,16 %
+000002a3 : 0102d293;   % 1039: 	srli t0,t0,16	 %
+000002a4 : ff028293;   % 1040: 	addi t0,t0,-16			# t0, tamanho da linha de pixels -16 %
+000002a5 : 1804c063;   % 1043: 	blt s1,zero,FimPlayerControls %
+000002a6 : 1692ce63;   % 1044: 	bgt s1,t0,FimPlayerControls		# analisa se passou das bordas dos lados %
+000002a7 : 01b002b3;   % 1046: 	mv t0,s11 %
+000002a8 : 0102d293;   % 1047: 	srli t0,t0,16		 %
+000002a9 : ff028293;   % 1048: 	addi t0,t0,-16			# t0, tamanho da coluna de pixels -16 %
+000002aa : 16094663;   % 1051: 	blt s2,zero,FimPlayerControls %
+000002ab : 1722c463;   % 1052: 	bgt s2,t0,FimPlayerControls		# analisa se passou das bordas de cima e de baixo %
+000002ac : 01091293;   % 1054: 	slli t0,s2,16 %
+000002ad : 009282b3;   % 1055: 	add t0,t0,s1 %
+000002ae : 0fc0f317;   % 1056: 	sw t0,TempPlayerPos,t1 %
+000002af : 56532023;   % 1056:  %
+000002b0 : 0040006f;   % 1058: 	j PlayerColCheck %
+000002b1 : 0fc0f517;   % 1062: 	la a0,TempPlayerPos %
+000002b2 : 55450513;   % 1062:  %
+000002b3 : 5a1000ef;   % 1063: 	jal CollisionUpdate %
+000002b4 : 0fc15997;   % 1065: 	la s3,collisionRender %
+000002b5 : c9898993;   % 1065:  %
+000002b6 : 009002b3;   % 1067: 	mv t0,s1 %
+000002b7 : 00f2f293;   % 1068: 	andi t0,t0,0xf %
+000002b8 : 005989b3;   % 1069: 	add s3,s3,t0			# adiciona o resto do offset X por 16 %
+000002b9 : 012002b3;   % 1071: 	mv t0,s2 %
+000002ba : 00f2f293;   % 1072: 	andi t0,t0,0xf %
+000002bb : 02000313;   % 1073: 	li t1,32 %
+000002bc : 026282b3;   % 1074: 	mul t0,t0,t1			# adiciona as linhas com base no resto do offset Y por 16 %
+000002bd : 005989b3;   % 1076: 	add s3,s3,t0			# s3, inicialmente como o endereco para o primeiro pixel do jogador no mapa de colisoes renderizado %
+000002be : 0fc0ff17;   % 1079: 	sh zero,PlayerGndState,t5	# determina que jogador esta no ar %
+000002bf : 520f1423;   % 1079:  %
+000002c0 : 013002b3;   % 1081: 	mv t0,s3 %
+000002c1 : 1e000313;   % 1082: 	li t1,480 # 15 linhas do sprite x 32 pixels da renderizacao da colisao %
+000002c2 : 006282b3;   % 1083: 	add t0,t0,t1  %
+000002c3 : 03800393;   % 1084: 	li t2,56 # verde %
+000002c4 : 00000e33;   % 1085: 	mv t3,zero %
+000002c5 : 00400e93;   % 1086: 	li t4,4				# contador de pixels a analisar %
+000002c6 : 0002c303;   % 1088: 	lbu t1,0(t0) %
+000002c7 : 0202cf03;   % 1089: 	lbu t5,32(t0) %
+000002c8 : 007f1863;   % 1090: 	bne t5,t2,DontSetGroundSt	# analisa pixels 1, 6, 11 e 16 da primeira linha abaixo do jogador %
+000002c9 : 00100f93;   % 1091: 	li t6,1 %
+000002ca : 0fc0ff17;   % 1092: 	sh t6,PlayerGndState,t5		# se algum dos pixels logo abaixo do jogador forem de chao ele passa a estar no estado "no chao" %
+000002cb : 4fff1c23;   % 1092:  %
+000002cc : 00731663;   % 1094: 	bne t1,t2,DontSnapUp		# analisa pixels 1, 6, 11 e 16 da ultima linha do jogador %
+000002cd : 160000ef;   % 1095: 	jal SnapUp %
+000002ce : fe1ff06f;   % 1096: 	j PlayerFloor			# repete enquanto colisao acontece %
+000002cf : 00528293;   % 1098: 	addi t0,t0,5			# avanca 5 pixels na linha %
+000002d0 : 001e0e13;   % 1099: 	addi t3,t3,1 %
+000002d1 : fdde4ae3;   % 1100: 	blt t3,t4,PlayerFloor %
+000002d2 : 013002b3;   % 1104: 	mv t0,s3 %
+000002d3 : 00700393;   % 1105: 	li t2,7 # vermelho %
+000002d4 : 00000e33;   % 1106: 	mv t3,zero %
+000002d5 : 00400e93;   % 1107: 	li t4,4				# contador de pixels a analisar %
+000002d6 : 0002c303;   % 1109: 	lbu t1,0(t0) %
+000002d7 : 00731663;   % 1110: 	bne t1,t2,DontSnapDown		# analisa primeiro pixel da primeira linha do jogador %
+000002d8 : 144000ef;   % 1112: 	jal SnapDown			 %
+000002d9 : ff5ff06f;   % 1113: 	j PlayerCeiling			# repete enquanto colisao acontece %
+000002da : 00528293;   % 1115: 	addi t0,t0,5			# avanca 5 pixels na linha %
+000002db : 001e0e13;   % 1116: 	addi t3,t3,1 %
+000002dc : ffde44e3;   % 1117: 	blt t3,t4,PlayerCeiling %
+000002dd : 013002b3;   % 1121: 	mv t0,s3 %
+000002de : 0c000393;   % 1122: 	li t2,192 # azul %
+000002df : 00000e33;   % 1123: 	mv t3,zero %
+000002e0 : 00400e93;   % 1124: 	li t4,4				# contador de pixels a analisar %
+000002e1 : 0002c303;   % 1126: 	lbu t1,0(t0) %
+000002e2 : 00731663;   % 1127: 	bne t1,t2,DontSnapRight		# analisa primeiro pixel da primeira linha do jogador %
+000002e3 : 138000ef;   % 1128: 	jal SnapRight %
+000002e4 : ff5ff06f;   % 1129: 	j PlayerLeftWall		# repete enquanto colisao acontece %
+000002e5 : 0a028293;   % 1131: 	addi t0,t0,160			# avanca 5 linhas no mapa de colisao %
+000002e6 : 001e0e13;   % 1132: 	addi t3,t3,1 %
+000002e7 : ffde44e3;   % 1133: 	blt t3,t4,PlayerLeftWall %
+000002e8 : 013002b3;   % 1137: 	mv t0,s3 %
+000002e9 : 0c000393;   % 1138: 	li t2,192 # azul %
+000002ea : 00000e33;   % 1139: 	mv t3,zero %
+000002eb : 00400e93;   % 1140: 	li t4,4				# contador de pixels a analisar %
+000002ec : 00f2c303;   % 1142: 	lbu t1,15(t0) %
+000002ed : 00731663;   % 1143: 	bne t1,t2,DontSnapLeft		# analisa ultimo pixel da primeira linha do jogador %
+000002ee : 0fc000ef;   % 1144: 	jal SnapLeft %
+000002ef : ff5ff06f;   % 1145: 	j PlayerRightWall		# repete enquanto colisao acontece %
+000002f0 : 0a028293;   % 1147: 	addi t0,t0,160			# avanca 5 linhas no mapa de colisao %
+000002f1 : 001e0e13;   % 1148: 	addi t3,t3,1 %
+000002f2 : ffde44e3;   % 1149: 	blt t3,t4,PlayerRightWall %
+000002f3 : 0fc0f297;   % 1153: 	sh s1,PlayerPosX,t0		# armazena novo X do jogador %
+000002f4 : 44929223;   % 1153:  %
+000002f5 : 0fc0f297;   % 1154: 	sh s2,PlayerPosY,t0		# armazena novo Y do jogador %
+000002f6 : 43229f23;   % 1154:  %
+000002f7 : 0fc0f317;   % 1158: 	lw t1,OffsetX	 %
+000002f8 : 42c32303;   % 1158:  %
+000002f9 : 0fc0f297;   % 1159: 	sw t1,OldOffset,t0		# atualiza OldOffset %
+000002fa : 4262a423;   % 1159:  %
+000002fb : 09800293;   % 1161: 	li t0,152			# precisa parar sprite no pixel 153 do bitmap (contando de 1) %
+000002fc : 0254d863;   % 1162: 	bge s1,t0,ChangeOffsetX		# se e necessario mover a tela atualiza o offset %
+000002fd : 00000333;   % 1163: 	mv t1,zero %
+000002fe : 0fc0f397;   % 1164: 	sh t1,OffsetX,t2		# armazena novo offset X %
+000002ff : 40639823;   % 1164:  %
+00000300 : 07000293;   % 1167: 	li t0,112			# precisa parar sprite no pixel 109 do bitmap (contando de 1) %
+00000301 : 04595c63;   % 1168: 	bge s2,t0,ChangeOffsetY		# se e necessario mover a tela atualiza o offset %
+00000302 : 00000333;   % 1169: 	mv t1,zero %
+00000303 : 0fc0f397;   % 1170: 	sh t1,OffsetY,t2		# armazena novo offset X %
+00000304 : 3e639f23;   % 1170:  %
+00000305 : 00012083;   % 1174: 	lw ra,0(sp) %
+00000306 : 00410113;   % 1175: 	addi sp,sp,4			# recupera endereco de retorno da pilha %
+00000307 : 00008067;   % 1177:   	ret %
+00000308 : 01b002b3;   % 1181: 	mv t0,s11 %
+00000309 : 01029293;   % 1182: 	slli t0,t0,16 %
+0000030a : 0102d293;   % 1183: 	srli t0,t0,16			# tamanho X do mapa %
+0000030b : f5828293;   % 1185: 	addi t0,t0,-168			# pixel mais a direita do mapa que muda o offset %
+0000030c : 0092cc63;   % 1186: 	bgt s1,t0,MaxOffsetX		# se o jogador estiver no fim da tela, o offset sempre sera o maior poss�vel %
+0000030d : 09800313;   % 1188: 	li t1,152				 %
+0000030e : 40648333;   % 1189: 	sub t1,s1,t1			# offsetX = posicao real do jogador - 152 %
+0000030f : 0fc0f397;   % 1191: 	sh t1,OffsetX,t2		# armazena novo offset X %
+00000310 : 3c639623;   % 1191:  %
+00000311 : fbdff06f;   % 1193: 	j FimChangeOffsetX %
+00000312 : 09800313;   % 1196: 	li t1,152 %
+00000313 : 406282b3;   % 1197: 	sub t0,t0,t1			# em t0 esta o valor maximo de X que altera o offset, entao e s� subtrair metade da tela e 8 pixels do sprite %
+00000314 : 0fc0f397;   % 1199: 	sh t0,OffsetX,t2		# armazena novo offset X como o maior valor possivel  %
+00000315 : 3a539c23;   % 1199:  %
+00000316 : fa9ff06f;   % 1201: 	j FimChangeOffsetX %
+00000317 : 01b002b3;   % 1204: 	mv t0,s11 %
+00000318 : 0102d293;   % 1205: 	srli t0,t0,16			# tamanho Y do mapa %
+00000319 : f8028293;   % 1207: 	addi t0,t0,-128			# pixel mais baixo do mapa que muda o offset %
+0000031a : 0122cc63;   % 1208: 	bgt s2,t0,MaxOffsetY %
+0000031b : 07000313;   % 1210: 	li t1,112 %
+0000031c : 40690333;   % 1211: 	sub t1,s2,t1			# offsetY = posicao real do jogador - 112 %
+0000031d : 0fc0f397;   % 1213: 	sh t1,OffsetY,t2		# armazena novo offset Y %
+0000031e : 38639b23;   % 1213:  %
+0000031f : f99ff06f;   % 1215: 	j FimChangeOffsetY %
+00000320 : 07000313;   % 1218: 	li t1,112 %
+00000321 : 406282b3;   % 1219: 	sub t0,t0,t1			# em t0 esta o valor maximo de Y que altera o offset, entao e so subtrair metade da tela e 8 pixels do sprite %
+00000322 : 0fc0f397;   % 1221: 	sh t0,OffsetY,t2		# armazena novo offset Y como o maior valor possivel  %
+00000323 : 38539123;   % 1221:  %
+00000324 : f85ff06f;   % 1223: 	j FimChangeOffsetY %
+00000325 : fff90913;   % 1227: 	addi s2,s2,-1 %
+00000326 : fe098993;   % 1228: 	addi s3,s3,-32 %
+00000327 : fe028293;   % 1229: 	addi t0,t0,-32 %
+00000328 : 00008067;   % 1230: 	ret			 %
+00000329 : 00190913;   % 1232: 	addi s2,s2,1	 %
+0000032a : 02098993;   % 1233: 	addi s3,s3,32 %
+0000032b : 02028293;   % 1234: 	addi t0,t0,32 %
+0000032c : 00008067;   % 1235: 	ret		 %
+0000032d : fff48493;   % 1237: 	addi s1,s1,-1 %
+0000032e : fff98993;   % 1238: 	addi s3,s3,-1 %
+0000032f : fff28293;   % 1239: 	addi t0,t0,-1 %
+00000330 : 00008067;   % 1240: 	ret		 %
+00000331 : 00148493;   % 1242: 	addi s1,s1,1 %
+00000332 : 00198993;   % 1243: 	addi s3,s3,1 %
+00000333 : 00128293;   % 1244: 	addi t0,t0,1 %
+00000334 : 00008067;   % 1245: 	ret %
+00000335 : ffc10113;   % 1249: 	addi sp,sp,-4 %
+00000336 : 00112023;   % 1251: 	sw ra,0(sp)			# pilha armazena apenas valor de retorno %
+00000337 : 0fc0f417;   % 1253: 	lw s0,PlayerLastDir		# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1 %
+00000338 : 37442403;   % 1253:  %
+00000339 : 0fc0fe17;   % 1255: 	lhu t3,PlayerAnimTransit %
+0000033a : 34ae5e03;   % 1255:  %
+0000033b : 01c002b3;   % 1257: 	mv t0,t3 %
+0000033c : 00028863;   % 1258: 	beq t0,zero,SkipSubTransit %
+0000033d : fff28293;   % 1259: 	addi t0,t0,-1 %
+0000033e : 0fc0f317;   % 1260: 	sh t0,PlayerAnimTransit,t1 %
+0000033f : 32531b23;   % 1260:  %
+00000340 : 0fc0f297;   % 1263: 	lw t0,PlayerObjDelay ### TODO temporario? %
+00000341 : 3442a283;   % 1263:  %
+00000342 : 00028863;   % 1264: 	beq t0,zero,SkipSubDelay %
+00000343 : fff28293;   % 1265: 	addi t0,t0,-1 %
+00000344 : 0fc0f317;   % 1266: 	sw t0,PlayerObjDelay,t1 %
+00000345 : 32532a23;   % 1266:  %
+00000346 : 0fc0fc17;   % 1269: 	lhu s8,PlayerAnimState %
+00000347 : 30ac5c03;   % 1269:  %
+00000348 : 0fc0fc97;   % 1270: 	lhu s9,PlayerPowState %
+00000349 : 304cdc83;   % 1270:  %
+0000034a : 01c04c63;   % 1272: 	bgt t3,zero,DefTransition %
+0000034b : 0fc0f297;   % 1274: 	lhu t0,PlayerGndState		# analisa se o jogador esta no chao ou no ar %
+0000034c : 2f42d283;   % 1274:  %
+0000034d : 10028663;   % 1275: 	beq t0,zero,DefineAnimVert %
+0000034e : 00100313;   % 1276: 	li t1,1 %
+0000034f : 08628c63;   % 1277: 	beq t0,t1,DefineAnimHorz %
+00000350 : 00100293;   % 1281: 	li t0,1 %
+00000351 : 025c8c63;   % 1282: 	beq s9,t0,DefFireAnim %
+00000352 : 00200293;   % 1283: 	li t0,2 %
+00000353 : 045c8063;   % 1284: 	beq s9,t0,DefIceAnim %
+00000354 : 00300293;   % 1285: 	li t0,3 %
+00000355 : 065cd063;   % 1286: 	bge s9,t0,DefSpitAnim %
+00000356 : 00100293;   % 1288: 	li t0,1 %
+00000357 : 00b00493;   % 1289: 	li s1,11 %
+00000358 : 125c0063;   % 1290: 	beq s8,t0,DefinedAnim %
+00000359 : 00600293;   % 1292: 	li t0,6 %
+0000035a : 00a00493;   % 1293: 	li s1,10 %
+0000035b : 105c0a63;   % 1294: 	beq s8,t0,DefinedAnim %
+0000035c : 00700293;   % 1296: 	li t0,7 %
+0000035d : 00c00493;   % 1297: 	li s1,12 %
+0000035e : 105c0463;   % 1298: 	beq s8,t0,DefinedAnim %
+0000035f : 00100293;   % 1301: 	li t0,1 %
+00000360 : 00e00493;   % 1302: 	li s1,14 %
+00000361 : 0e5c0e63;   % 1303: 	beq s8,t0,DefinedAnim %
+00000362 : 0340006f;   % 1305: 	j EndDefFireIce %
+00000363 : 00600293;   % 1308: 	li t0,6 %
+00000364 : 00f00493;   % 1309: 	li s1,15 %
+00000365 : 0e5c0663;   % 1310: 	beq s8,t0,DefinedAnim %
+00000366 : 00100293;   % 1312: 	li t0,1 %
+00000367 : 01000493;   % 1313: 	li s1,16 %
+00000368 : 0e5c0063;   % 1314: 	beq s8,t0,DefinedAnim %
+00000369 : 00700293;   % 1316: 	li t0,7 %
+0000036a : 01100493;   % 1317: 	li s1,17 %
+0000036b : 0c5c0a63;   % 1318: 	beq s8,t0,DefinedAnim %
+0000036c : 00c0006f;   % 1320: 	j EndDefFireIce %
+0000036d : 00700493;   % 1323: 	li s1,7 ### TODO %
+0000036e : 0c80006f;   % 1324: 	j DefinedAnim %
+0000036f : 00900293;   % 1327: 	li t0,9 %
+00000370 : 00900493;   % 1328: 	li s1,9 # DefStartFly %
+00000371 : 0a5c0e63;   % 1329: 	beq s8,t0,DefinedAnim %
+00000372 : 00a00293;   % 1331: 	li t0,10 %
+00000373 : 00d00493;   % 1332: 	li s1,13 # DefAttackAir %
+00000374 : 0a5c0863;   % 1333: 	beq s8,t0,DefinedAnim %
+00000375 : 0fc0f297;   % 1336: 	lh t0,PlayerSpeedX %
+00000376 : 24829283;   % 1336:  %
+00000377 : 0fc0f317;   % 1337: 	lh t1,PlayerAnimState %
+00000378 : 24631303;   % 1337:  %
+00000379 : 00400393;   % 1339: 	li t2,4 %
+0000037a : 00735e63;   % 1340: 	bge t1,t2,DefFlyKirbyHorz %
+0000037b : 00300393;   % 1342: 	li t2,3 %
+0000037c : 007cde63;   % 1343: 	bge s9,t2,DefBigAnimHorz %
+0000037d : 0202c663;   % 1345: 	blt t0,zero,DefNegSpeedX %
+0000037e : 02504c63;   % 1346: 	bgt t0,zero,DefPosSpeedX %
+0000037f : 000004b3;   % 1348: 	mv s1,zero %
+00000380 : 0800006f;   % 1349: 	j DefinedAnim %
+00000381 : 00600493;   % 1352: 	li s1,6 %
+00000382 : 0780006f;   % 1353: 	j DefinedAnim %
+00000383 : 00029663;   % 1356: 	bne t0,zero,DefBigWalk %
+00000384 : 00700493;   % 1358: 	li s1,7 %
+00000385 : 06c0006f;   % 1359: 	j DefinedAnim %
+00000386 : 00800493;   % 1361: 	li s1,8 %
+00000387 : 0640006f;   % 1362: 	j DefinedAnim %
+00000388 : 00100493;   % 1365: 	li s1,1 %
+00000389 : 04040e63;   % 1366: 	beq s0,zero,DefinedAnim %
+0000038a : 00200493;   % 1367: 	li s1,2		# break left to right se estiver apertando 'd' mas com velocidade para a esquerda %
+0000038b : 0540006f;   % 1368: 	j DefinedAnim %
+0000038c : 00200493;   % 1371: 	li s1,2		# break right to left se estiver apertando 'a' mas com velocidade para a direita %
+0000038d : 04040663;   % 1372: 	beq s0,zero,DefinedAnim %
+0000038e : 00100493;   % 1373: 	li s1,1		 %
+0000038f : 0440006f;   % 1374: 	j DefinedAnim %
+00000390 : 0fc0f297;   % 1378: 	lh t0,PlayerSpeedY %
+00000391 : 1de29283;   % 1378:  %
+00000392 : 0fc0f317;   % 1379: 	lh t1,PlayerAnimState %
+00000393 : 1da31303;   % 1379:  %
+00000394 : 00400393;   % 1381: 	li t2,4 %
+00000395 : 00735e63;   % 1382: 	bge t1,t2,DefAnimFly %
+00000396 : 00300393;   % 1384: 	li t2,3 %
+00000397 : fa7cdee3;   % 1385: 	bge s9,t2,DefBigWalk # animacao de pulo com item na boca e a mesma de andar %
+00000398 : 00300493;   % 1387: 	li s1,3 %
+00000399 : 0002ce63;   % 1388: 	blt t0,zero,DefinedAnim  # quick jump %
+0000039a : 00400493;   % 1389: 	li s1,4 %
+0000039b : 0140006f;   % 1390: 	j DefinedAnim  # quick fall %
+0000039c : 00500493;   % 1393: 	li s1,5 %
+0000039d : 00505663;   % 1394: 	ble t0,zero,DefinedAnim  # slow jump %
+0000039e : 00600493;   % 1395: 	li s1,6 %
+0000039f : 0040006f;   % 1396: 	j DefinedAnim  # slow fall %
+000003a0 : 0fc0f297;   % 1399: 	sh s1,PlayerAnim,t0 %
+000003a1 : 1a929423;   % 1399:  %
+000003a2 : 0fc0fa97;   % 1402: 	lw s5,FrameCount %
+000003a3 : 1d0aaa83;   % 1402:  %
+000003a4 : 0fc0f297;   % 1404: 	lw t0,PlayerSprite %
+000003a5 : 1a82a283;   % 1404:  %
+000003a6 : 0fc0f497;   % 1405: 	lhu s1,PlayerAnimCount %
+000003a7 : 1944d483;   % 1405:  %
+000003a8 : 0fc0f917;   % 1406: 	lhu s2,PlayerMaxFrame	# duracao do sprite atual em frames, se for 0 sera um sprite sem animacao %
+000003a9 : 19495903;   % 1406:  %
+000003aa : 0fc0f997;   % 1408: 	lhu s3,PlayerAnim %
+000003ab : 1809d983;   % 1408:  %
+000003ac : 0fc0f297;   % 1409: 	lhu t0,PlayerOldAnim %
+000003ad : 17a2d283;   % 1409:  %
+000003ae : 02598663;   % 1410: 	beq s3,t0,ContinueAnim  # continua uma animacao se o valor dela nao trocou %
+000003af : 0fc0f317;   % 1413: 	sw s5,PlayerLastFrame,t1 %
+000003b0 : 19532223;   % 1413:  %
+000003b1 : 000004b3;   % 1414: 	mv s1,zero	# define que o proximo sprite sera o sprite 0 (da animacao definida abaixo) %
+000003b2 : 00400313;   % 1416: 	li t1,4 %
+000003b3 : 01331863;   % 1417: 	bne t1,s3,MostAnimCases %
+000003b4 : 00300313;   % 1419: 	li t1,3 %
+000003b5 : 00530463;   % 1420: 	beq t1,t0,MostAnimCases %
+000003b6 : 00300493;   % 1421: 	li s1,3  # se a animacao de queda rapida nao estiver vindo de um pulo unico, o kirby nao faz a cambalhota %
+000003b7 : 0fc0f317;   % 1424: 	sh s1,PlayerAnimCount,t1 %
+000003b8 : 14931823;   % 1424:  %
+000003b9 : 0fc0f317;   % 1427: 	sh s3,PlayerOldAnim,t1 %
+000003ba : 15331323;   % 1427:  %
+000003bb : 00000b33;   % 1429: 	mv s6,zero  # inicia definindo a duracao da nova animacao como zero, para o caso das que tem apenas 1 frame %
+000003bc : 0fc14b97;   % 1430: 	la s7,playerCol  # inicia armazenando o sprite de colisao basico, ja que e usado na maioria dos sprites %
+000003bd : 994b8b93;   % 1430:  %
+000003be : 0a098a63;   % 1441: 	beq s3,zero,PlayerIdle %
+000003bf : 00100293;   % 1442: 	li t0,1 %
+000003c0 : 10598063;   % 1443: 	beq s3,t0,PlayerWalk %
+000003c1 : 00200293;   % 1444: 	li t0,2 %
+000003c2 : 0fc10a17;   % 1445: 	la s4,kirbyBreak		# animacoes que tem apenas 1 frame nao precisam checar mudanca de frame %
+000003c3 : 100a0a13;   % 1445:  %
+000003c4 : 14598263;   % 1446: 	beq s3,t0,PlayerBreak		# no caso do break ha a animacao de poeira %
+000003c5 : 00300293;   % 1447: 	li t0,3 %
+000003c6 : 0fc11a17;   % 1448: 	la s4,kirbyJump %
+000003c7 : 950a0a13;   % 1448:  %
+000003c8 : 70598a63;   % 1449: 	beq s3,t0,GotPlayerSprite %
+000003c9 : 00400293;   % 1450: 	li t0,4 %
+000003ca : 16598463;   % 1451: 	beq s3,t0,PlayerQuickFall %
+000003cb : 00500293;   % 1452: 	li t0,5 %
+000003cc : 1c598863;   % 1453: 	beq s3,t0,PlayerFly %
+000003cd : 00600293;   % 1454: 	li t0,6 %
+000003ce : 1e598e63;   % 1455: 	beq s3,t0,PlayerSlowFall %
+000003cf : 00700293;   % 1456: 	li t0,7 %
+000003d0 : 0fc11a17;   % 1457: 	la s4,kirbyBigIdle %
+000003d1 : 0b0a0a13;   % 1457:  %
+000003d2 : 6e598663;   % 1458: 	beq s3,t0,GotPlayerSprite %
+000003d3 : 00800293;   % 1459: 	li t0,8 %
+000003d4 : 20598c63;   % 1460: 	beq s3,t0,PlayerBigWalk %
+000003d5 : 00900293;   % 1461: 	li t0,9 %
+000003d6 : 42598e63;   % 1462: 	beq s3,t0,PlayerStartFly %
+000003d7 : 00a00293;   % 1463: 	li t0,10 %
+000003d8 : 26598863;   % 1464: 	beq s3,t0,PlayerStartEat %
+000003d9 : 00b00293;   % 1465: 	li t0,11 %
+000003da : 28598e63;   % 1466: 	beq s3,t0,PlayerEat %
+000003db : 00c00293;   % 1467: 	li t0,12 %
+000003dc : 3e598863;   % 1468: 	beq s3,t0,PlayerEndEat %
+000003dd : 00d00293;   % 1469: 	li t0,13 %
+000003de : 48598063;   % 1470: 	beq s3,t0,PlayerAirAttack %
+000003df : 00e00293;   % 1471: 	li t0,14 %
+000003e0 : 64598063;   % 1472: 	beq s3,t0,PlayerFireAttack %
+000003e1 : 00f00293;   % 1473: 	li t0,15 %
+000003e2 : 0fc13a17;   % 1474: 	la s4,kirbyIceAtt0 %
+000003e3 : dc0a0a13;   % 1474:  %
+000003e4 : 6a598263;   % 1475: 	beq s3,t0,GotPlayerSprite %
+000003e5 : 01000293;   % 1476: 	li t0,16 %
+000003e6 : 50598263;   % 1477: 	beq s3,t0,PlayerIceAttack %
+000003e7 : 01100293;   % 1478: 	li t0,17 %
+000003e8 : 0fc13a17;   % 1479: 	la s4,kirbyIceAtt0 %
+000003e9 : da8a0a13;   % 1479:  %
+000003ea : 68598663;   % 1480: 	beq s3,t0,GotPlayerSprite %
+000003eb : 6b4000ef;   % 1483: 	jal CheckNextSprAnim %
+000003ec : 0034f493;   % 1484: 	andi s1,s1,3 %
+000003ed : 0fc10a17;   % 1486: 	la s4,kirbyIdle0 %
+000003ee : 69ca0a13;   % 1486:  %
+000003ef : 09600b13;   % 1487: 	li s6,150 %
+000003f0 : 66048a63;   % 1488: 	beq s1,zero,GotPlayerSprite %
+000003f1 : 00100293;   % 1489: 	li t0,1 %
+000003f2 : 0fc10a17;   % 1490: 	la s4,kirbyIdle1 %
+000003f3 : 794a0a13;   % 1490:  %
+000003f4 : 00a00b13;   % 1491: 	li s6,10 %
+000003f5 : 66548063;   % 1492: 	beq s1,t0,GotPlayerSprite %
+000003f6 : 00200293;   % 1493: 	li t0,2 %
+000003f7 : 0fc10a17;   % 1494: 	la s4,kirbyIdle0 %
+000003f8 : 674a0a13;   % 1494:  %
+000003f9 : 00a00b13;   % 1495: 	li s6,10 %
+000003fa : 64548663;   % 1496: 	beq s1,t0,GotPlayerSprite %
+000003fb : 00300293;   % 1497: 	li t0,3 %
+000003fc : 0fc10a17;   % 1498: 	la s4,kirbyIdle1 %
+000003fd : 76ca0a13;   % 1498:  %
+000003fe : 00a00b13;   % 1499: 	li s6,10 %
+000003ff : 62548c63;   % 1500: 	beq s1,t0,GotPlayerSprite %
+00000400 : 660000ef;   % 1503: 	jal CheckNextSprAnim %
+00000401 : 0034f493;   % 1504: 	andi s1,s1,3 %
+00000402 : 0fc11a17;   % 1506: 	la s4,kirbyWalk0 %
+00000403 : 96ca0a13;   % 1506:  %
+00000404 : 00a00b13;   % 1507: 	li s6,10 %
+00000405 : 62048063;   % 1508: 	beq s1,zero,GotPlayerSprite %
+00000406 : 00100293;   % 1509: 	li t0,1 %
+00000407 : 0fc11a17;   % 1510: 	la s4,kirbyWalk1 %
+00000408 : a64a0a13;   % 1510:  %
+00000409 : 00a00b13;   % 1511: 	li s6,10 %
+0000040a : 60548663;   % 1512: 	beq s1,t0,GotPlayerSprite %
+0000040b : 00200293;   % 1513: 	li t0,2 %
+0000040c : 0fc11a17;   % 1514: 	la s4,kirbyWalk2 %
+0000040d : b5ca0a13;   % 1514:  %
+0000040e : 00a00b13;   % 1515: 	li s6,10 %
+0000040f : 5e548c63;   % 1516: 	beq s1,t0,GotPlayerSprite %
+00000410 : 00300293;   % 1517: 	li t0,3 %
+00000411 : 0fc11a17;   % 1518: 	la s4,kirbyWalk3 %
+00000412 : c54a0a13;   % 1518:  %
+00000413 : 00a00b13;   % 1519: 	li s6,10 %
+00000414 : 5e548263;   % 1520: 	beq s1,t0,GotPlayerSprite %
+00000415 : 0fc0f297;   % 1523: 	lw t0,PlayerObjDelay %
+00000416 : ff02a283;   % 1523:  %
+00000417 : 5c504c63;   % 1524: 	bgt t0,zero,GotPlayerSprite # trocar essa label se copiar essa linha %
+00000418 : 00400293;   % 1526: 	li t0,4 %
+00000419 : 0fc0f317;   % 1527: 	sw t0,PlayerObjDelay,t1 %
+0000041a : fe532023;   % 1527:  %
+0000041b : 00100513;   % 1529: 	li a0,1 # id do objeto (poeira) %
+0000041c : 00100593;   % 1530: 	li a1,1 # quantidade do objeto %
+0000041d : 0fc0f617;   % 1531: 	lw a2,PlayerPosX %
+0000041e : f9c62603;   % 1531:  %
+0000041f : 0fc0f697;   % 1532: 	lw a3,PlayerLastDir %
+00000420 : fd46a683;   % 1532:  %
+00000421 : 00000733;   % 1533: 	mv a4,zero %
+00000422 : 8ecff0ef;   % 1535: 	jal BuildObject %
+00000423 : 5a80006f;   % 1537: 	j GotPlayerSprite %
+00000424 : 5d0000ef;   % 1540: 	jal CheckNextSprAnim %
+00000425 : 00500293;   % 1541: 	li t0,5 %
+00000426 : 0054a333;   % 1542: 	slt t1,s1,t0 %
+00000427 : 026484b3;   % 1543: 	mul s1,s1,t1		# um mod 5 manual %
+00000428 : 0fc10a17;   % 1545: 	la s4,kirbyFall0 %
+00000429 : 074a0a13;   % 1545:  %
+0000042a : 00500b13;   % 1546: 	li s6,5 %
+0000042b : 58048463;   % 1547: 	beq s1,zero,GotPlayerSprite %
+0000042c : 00100293;   % 1548: 	li t0,1 %
+0000042d : 0fc10a17;   % 1549: 	la s4,kirbyFall1 %
+0000042e : 16ca0a13;   % 1549:  %
+0000042f : 00500b13;   % 1550: 	li s6,5 %
+00000430 : 56548a63;   % 1551: 	beq s1,t0,GotPlayerSprite %
+00000431 : 00200293;   % 1552: 	li t0,2 %
+00000432 : 0fc10a17;   % 1553: 	la s4,kirbyFall2 %
+00000433 : 264a0a13;   % 1553:  %
+00000434 : 00500b13;   % 1554: 	li s6,5 %
+00000435 : 56548063;   % 1555: 	beq s1,t0,GotPlayerSprite %
+00000436 : 00300293;   % 1556: 	li t0,3 %
+00000437 : 0fc10a17;   % 1557: 	la s4,kirbyFall3 %
+00000438 : 35ca0a13;   % 1557:  %
+00000439 : 01e00b13;   % 1558: 	li s6,30 %
+0000043a : 54548663;   % 1559: 	beq s1,t0,GotPlayerSprite %
+0000043b : 00400293;   % 1560: 	li t0,4 %
+0000043c : 0fc10a17;   % 1561: 	la s4,kirbyFall4 %
+0000043d : 454a0a13;   % 1561:  %
+0000043e : 1f400b13;   % 1562: 	li s6,500 %
+0000043f : 52548c63;   % 1563: 	beq s1,t0,GotPlayerSprite %
+00000440 : 0fc13b97;   % 1566: 	la s7,playerCol %
+00000441 : 784b8b93;   % 1566:  %
+00000442 : 558000ef;   % 1568: 	jal CheckNextSprAnim %
+00000443 : 0014f493;   % 1569: 	andi s1,s1,1 %
+00000444 : 0fc12a17;   % 1571: 	la s4,kirbyFly0 %
+00000445 : 158a0a13;   % 1571:  %
+00000446 : 00a00b13;   % 1572: 	li s6,10 %
+00000447 : 50048c63;   % 1573: 	beq s1,zero,GotPlayerSprite %
+00000448 : 00100293;   % 1574: 	li t0,1 %
+00000449 : 0fc12a17;   % 1575: 	la s4,kirbyFly1 %
+0000044a : 390a0a13;   % 1575:  %
+0000044b : 00a00b13;   % 1576: 	li s6,10 %
+0000044c : 50548263;   % 1577: 	beq s1,t0,GotPlayerSprite %
+0000044d : 0fc13b97;   % 1580: 	la s7,playerCol %
+0000044e : 750b8b93;   % 1580:  %
+0000044f : 524000ef;   % 1582: 	jal CheckNextSprAnim %
+00000450 : 0014f493;   % 1583: 	andi s1,s1,1 %
+00000451 : 0fc12a17;   % 1585: 	la s4,kirbyFly0 %
+00000452 : 124a0a13;   % 1585:  %
+00000453 : 01900b13;   % 1586: 	li s6,25 %
+00000454 : 4e048263;   % 1587: 	beq s1,zero,GotPlayerSprite %
+00000455 : 00100293;   % 1588: 	li t0,1 %
+00000456 : 0fc12a17;   % 1589: 	la s4,kirbyFly1 %
+00000457 : 35ca0a13;   % 1589:  %
+00000458 : 01900b13;   % 1590: 	li s6,25 %
+00000459 : 4c548863;   % 1591: 	beq s1,t0,GotPlayerSprite %
+0000045a : 0fc13b97;   % 1594: 	la s7,playerCol %
+0000045b : 71cb8b93;   % 1594:  %
+0000045c : 4f0000ef;   % 1596: 	jal CheckNextSprAnim %
+0000045d : 0034f493;   % 1597: 	andi s1,s1,3 %
+0000045e : 0fc11a17;   % 1599: 	la s4,kirbyBigWalk0 %
+0000045f : 0c4a0a13;   % 1599:  %
+00000460 : 00a00b13;   % 1600: 	li s6,10 %
+00000461 : 4a048863;   % 1601: 	beq s1,zero,GotPlayerSprite %
+00000462 : 0fc0f317;   % 1603: 	lh t1,PlayerSpeedY # se o jogador estiver caindo trava nessa animacao %
+00000463 : e9631303;   % 1603:  %
+00000464 : 4a604263;   % 1604: 	bgt t1,zero,GotPlayerSprite %
+00000465 : 00100293;   % 1606: 	li t0,1 %
+00000466 : 0fc11a17;   % 1607: 	la s4,kirbyBigWalk1 %
+00000467 : 2f0a0a13;   % 1607:  %
+00000468 : 00a00b13;   % 1608: 	li s6,10 %
+00000469 : 48548863;   % 1609: 	beq s1,t0,GotPlayerSprite %
+0000046a : 00200293;   % 1610: 	li t0,2 %
+0000046b : 0fc11a17;   % 1611: 	la s4,kirbyBigWalk2 %
+0000046c : 528a0a13;   % 1611:  %
+0000046d : 00a00b13;   % 1612: 	li s6,10 %
+0000046e : 46548e63;   % 1613: 	beq s1,t0,GotPlayerSprite %
+0000046f : 00300293;   % 1614: 	li t0,3 %
+00000470 : 0fc11a17;   % 1615: 	la s4,kirbyBigWalk1 %
+00000471 : 2c8a0a13;   % 1615:  %
+00000472 : 00a00b13;   % 1616: 	li s6,10 %
+00000473 : 46548463;   % 1617: 	beq s1,t0,GotPlayerSprite %
+00000474 : 490000ef;   % 1620: 	jal CheckNextSprAnim %
+00000475 : 0014f493;   % 1621: 	andi s1,s1,1 %
+00000476 : 0fc12a17;   % 1623: 	la s4,kirbyEat1 %
+00000477 : 960a0a13;   % 1623:  %
+00000478 : 00500b13;   % 1624: 	li s6,5 %
+00000479 : 44048863;   % 1625: 	beq s1,zero,GotPlayerSprite %
+0000047a : 00100293;   % 1626: 	li t0,1 %
+0000047b : 0fc12a17;   % 1627: 	la s4,kirbyEat2 %
+0000047c : a58a0a13;   % 1627:  %
+0000047d : 00500b13;   % 1628: 	li s6,5 %
+0000047e : 0fc13b97;   % 1629: 	la s7,playerEatCol %
+0000047f : 798b8b93;   % 1629:  %
+00000480 : 42548a63;   % 1630: 	beq s1,t0,GotPlayerSprite %
+00000481 : 0fc0f297;   % 1633: 	lw t0,PlayerObjDelay %
+00000482 : e402a283;   % 1633:  %
+00000483 : 00a00313;   % 1634: 	li t1,10 %
+00000484 : 08628063;   % 1635: 	beq t0,t1,TinyDustObj2 %
+00000485 : 00500313;   % 1636: 	li t1,5 %
+00000486 : 0c628e63;   % 1637: 	beq t0,t1,TinyDustObj3 %
+00000487 : 12504c63;   % 1638: 	bgt t0,zero,DoneTinyDustObjs %
+00000488 : 00f00293;   % 1640: 	li t0,15 %
+00000489 : 0fc0f317;   % 1641: 	sw t0,PlayerObjDelay,t1 %
+0000048a : e2532023;   % 1641:  %
+0000048b : 00500513;   % 1643: 	li a0,5 # id do objeto (area de puxar) %
+0000048c : 00100593;   % 1644: 	li a1,1 # quantidade do objeto %
+0000048d : 0fc0f617;   % 1645: 	lw a2,PlayerPosX %
+0000048e : ddc62603;   % 1645:  %
+0000048f : 0fc0f697;   % 1646: 	lw a3,PlayerLastDir %
+00000490 : e146a683;   % 1646:  %
+00000491 : 00000733;   % 1647: 	mv a4,zero %
+00000492 : f2dfe0ef;   % 1648: 	jal BuildObject %
+00000493 : 00200513;   % 1650: 	li a0,2 # id do objeto (poeira pequena) %
+00000494 : 00100593;   % 1651: 	li a1,1 # quantidade do objeto %
+00000495 : 0fc0f617;   % 1652: 	lw a2,PlayerPosX %
+00000496 : dbc62603;   % 1652:  %
+00000497 : 0fc0f697;   % 1653: 	lw a3,PlayerLastDir %
+00000498 : df46a683;   % 1653:  %
+00000499 : 00100713;   % 1654: 	li a4,1 %
+0000049a : f0dfe0ef;   % 1655: 	jal BuildObject %
+0000049b : 00200513;   % 1657: 	li a0,2 # id do objeto (poeira pequena) %
+0000049c : 00100593;   % 1658: 	li a1,1 # quantidade do objeto %
+0000049d : 0fc0f617;   % 1659: 	lw a2,PlayerPosX %
+0000049e : d9c62603;   % 1659:  %
+0000049f : 0fc0f697;   % 1660: 	lw a3,PlayerLastDir %
+000004a0 : dd46a683;   % 1660:  %
+000004a1 : 00300713;   % 1661: 	li a4,3 %
+000004a2 : eedfe0ef;   % 1662: 	jal BuildObject %
+000004a3 : 0c80006f;   % 1664: 	j DoneTinyDustObjs %
+000004a4 : 00500513;   % 1667: 	li a0,5 # id do objeto (area de puxar) %
+000004a5 : 00100593;   % 1668: 	li a1,1 # quantidade do objeto %
+000004a6 : 0fc0f617;   % 1669: 	lw a2,PlayerPosX %
+000004a7 : d7862603;   % 1669:  %
+000004a8 : 0fc0f697;   % 1670: 	lw a3,PlayerLastDir %
+000004a9 : db06a683;   % 1670:  %
+000004aa : 00000733;   % 1671: 	mv a4,zero %
+000004ab : ec9fe0ef;   % 1672: 	jal BuildObject %
+000004ac : 00200513;   % 1674: 	li a0,2 # id do objeto (poeira pequena) %
+000004ad : 00100593;   % 1675: 	li a1,1 # quantidade do objeto %
+000004ae : 0fc0f617;   % 1676: 	lw a2,PlayerPosX %
+000004af : d5862603;   % 1676:  %
+000004b0 : 0fc0f697;   % 1677: 	lw a3,PlayerLastDir %
+000004b1 : d906a683;   % 1677:  %
+000004b2 : 00000733;   % 1678: 	mv a4,zero %
+000004b3 : ea9fe0ef;   % 1679: 	jal BuildObject %
+000004b4 : 00200513;   % 1681: 	li a0,2 # id do objeto (poeira pequena) %
+000004b5 : 00100593;   % 1682: 	li a1,1 # quantidade do objeto %
+000004b6 : 0fc0f617;   % 1683: 	lw a2,PlayerPosX %
+000004b7 : d3862603;   % 1683:  %
+000004b8 : 0fc0f697;   % 1684: 	lw a3,PlayerLastDir %
+000004b9 : d706a683;   % 1684:  %
+000004ba : 00500713;   % 1685: 	li a4,5 %
+000004bb : e89fe0ef;   % 1686: 	jal BuildObject %
+000004bc : 0640006f;   % 1688: 	j DoneTinyDustObjs %
+000004bd : 00500513;   % 1691: 	li a0,5 # id do objeto (area de puxar) %
+000004be : 00100593;   % 1692: 	li a1,1 # quantidade do objeto %
+000004bf : 0fc0f617;   % 1693: 	lw a2,PlayerPosX %
+000004c0 : d1462603;   % 1693:  %
+000004c1 : 0fc0f697;   % 1694: 	lw a3,PlayerLastDir %
+000004c2 : d4c6a683;   % 1694:  %
+000004c3 : 00000733;   % 1695: 	mv a4,zero %
+000004c4 : e65fe0ef;   % 1696: 	jal BuildObject %
+000004c5 : 00200513;   % 1698: 	li a0,2 # id do objeto (poeira pequena) %
+000004c6 : 00100593;   % 1699: 	li a1,1 # quantidade do objeto %
+000004c7 : 0fc0f617;   % 1700: 	lw a2,PlayerPosX %
+000004c8 : cf462603;   % 1700:  %
+000004c9 : 0fc0f697;   % 1701: 	lw a3,PlayerLastDir %
+000004ca : d2c6a683;   % 1701:  %
+000004cb : 00200713;   % 1702: 	li a4,2 %
+000004cc : e45fe0ef;   % 1703: 	jal BuildObject %
+000004cd : 00200513;   % 1705: 	li a0,2 # id do objeto (poeira pequena) %
+000004ce : 00100593;   % 1706: 	li a1,1 # quantidade do objeto %
+000004cf : 0fc0f617;   % 1707: 	lw a2,PlayerPosX %
+000004d0 : cd462603;   % 1707:  %
+000004d1 : 0fc0f697;   % 1708: 	lw a3,PlayerLastDir %
+000004d2 : d0c6a683;   % 1708:  %
+000004d3 : 00400713;   % 1709: 	li a4,4 %
+000004d4 : e25fe0ef;   % 1710: 	jal BuildObject %
+000004d5 : 0fc12a17;   % 1714: 	la s4,kirbyEat2 %
+000004d6 : 8f0a0a13;   % 1714:  %
+000004d7 : 2d80006f;   % 1716: 	j GotPlayerSprite %
+000004d8 : 300000ef;   % 1719: 	jal CheckNextSprAnim %
+000004d9 : 0014f493;   % 1720: 	andi s1,s1,1 %
+000004da : 0fc12a17;   % 1722: 	la s4,kirbyEat2 %
+000004db : 8dca0a13;   % 1722:  %
+000004dc : 00500b13;   % 1723: 	li s6,5 %
+000004dd : 0fc13b97;   % 1724: 	la s7,playerEatCol %
+000004de : 61cb8b93;   % 1724:  %
+000004df : 2a048c63;   % 1725: 	beq s1,zero,GotPlayerSprite %
+000004e0 : 00100293;   % 1726: 	li t0,1 %
+000004e1 : 0fc11a17;   % 1727: 	la s4,kirbyEat1 %
+000004e2 : 7b4a0a13;   % 1727:  %
+000004e3 : 00500b13;   % 1728: 	li s6,5 %
+000004e4 : 2a548263;   % 1729: 	beq s1,t0,GotPlayerSprite %
+000004e5 : 2cc000ef;   % 1732: 	jal CheckNextSprAnim %
+000004e6 : 0034f493;   % 1733: 	andi s1,s1,3 %
+000004e7 : 0fc11a17;   % 1735: 	la s4,kirbyEat0 %
+000004e8 : 690a0a13;   % 1735:  %
+000004e9 : 00500b13;   % 1736: 	li s6,5 %
+000004ea : 28048663;   % 1737: 	beq s1,zero,GotPlayerSprite %
+000004eb : 00100293;   % 1738: 	li t0,1 %
+000004ec : 0fc11a17;   % 1739: 	la s4,kirbyEat1 %
+000004ed : 788a0a13;   % 1739:  %
+000004ee : 00500b13;   % 1740: 	li s6,5 %
+000004ef : 26548c63;   % 1741: 	beq s1,t0,GotPlayerSprite %
+000004f0 : 00200293;   % 1742: 	li t0,2 %
+000004f1 : 0fc12a17;   % 1743: 	la s4,kirbyEat2 %
+000004f2 : 880a0a13;   % 1743:  %
+000004f3 : 00500b13;   % 1744: 	li s6,5 %
+000004f4 : 0fc13b97;   % 1745: 	la s7,playerEatCol %
+000004f5 : 5c0b8b93;   % 1745:  %
+000004f6 : 24548e63;   % 1746: 	beq s1,t0,GotPlayerSprite %
+000004f7 : 00300293;   % 1747: 	li t0,3 %
+000004f8 : 0fc12a17;   % 1748: 	la s4,kirbyEat3 %
+000004f9 : 9f0a0a13;   % 1748:  %
+000004fa : 00500b13;   % 1749: 	li s6,5 %
+000004fb : 0fc13b97;   % 1750: 	la s7,playerCol %
+000004fc : 498b8b93;   % 1750:  %
+000004fd : 24548063;   % 1751: 	beq s1,t0,GotPlayerSprite %
+000004fe : 0fc0f297;   % 1754: 	lw t0,PlayerObjDelay %
+000004ff : c4c2a283;   % 1754:  %
+00000500 : 02504863;   % 1755: 	bgt t0,zero,DoneAirObj %
+00000501 : 01e00293;   % 1757: 	li t0,30 %
+00000502 : 0fc0f317;   % 1758: 	sw t0,PlayerObjDelay,t1 %
+00000503 : c2532e23;   % 1758:  %
+00000504 : 00600513;   % 1760: 	li a0,6 # id do objeto (ar) %
+00000505 : 00100593;   % 1761: 	li a1,1 # quantidade do objeto %
+00000506 : 0fc0f617;   % 1762: 	lw a2,PlayerPosX %
+00000507 : bf862603;   % 1762:  %
+00000508 : 0fc0f697;   % 1763: 	lw a3,PlayerLastDir %
+00000509 : c306a683;   % 1763:  %
+0000050a : 00000733;   % 1764: 	mv a4,zero %
+0000050b : d49fe0ef;   % 1765: 	jal BuildObject %
+0000050c : 230000ef;   % 1768: 	jal CheckNextSprAnim %
+0000050d : 0034f493;   % 1769: 	andi s1,s1,3 %
+0000050e : 0fc12a17;   % 1771: 	la s4,kirbyEat3 %
+0000050f : 998a0a13;   % 1771:  %
+00000510 : 00f00b13;   % 1772: 	li s6,15 %
+00000511 : 0fc13b97;   % 1773: 	la s7,playerCol %
+00000512 : 440b8b93;   % 1773:  %
+00000513 : 1e048463;   % 1774: 	beq s1,zero,GotPlayerSprite %
+00000514 : 00100293;   % 1775: 	li t0,1 %
+00000515 : 0fc11a17;   % 1776: 	la s4,kirbyEat2 %
+00000516 : 7f0a0a13;   % 1776:  %
+00000517 : 00500b13;   % 1777: 	li s6,5 %
+00000518 : 0fc13b97;   % 1778: 	la s7,playerEatCol %
+00000519 : 530b8b93;   % 1778:  %
+0000051a : 1c548663;   % 1779: 	beq s1,t0,GotPlayerSprite %
+0000051b : 00200293;   % 1780: 	li t0,2 %
+0000051c : 0fc11a17;   % 1781: 	la s4,kirbyEat1 %
+0000051d : 6c8a0a13;   % 1781:  %
+0000051e : 00500b13;   % 1782: 	li s6,5 %
+0000051f : 0fc13b97;   % 1783: 	la s7,playerCol %
+00000520 : 408b8b93;   % 1783:  %
+00000521 : 1a548863;   % 1784: 	beq s1,t0,GotPlayerSprite %
+00000522 : 00300293;   % 1785: 	li t0,3 %
+00000523 : 0fc11a17;   % 1786: 	la s4,kirbyEat0 %
+00000524 : 5a0a0a13;   % 1786:  %
+00000525 : 00500b13;   % 1787: 	li s6,5 %
+00000526 : 18548e63;   % 1788: 	beq s1,t0,GotPlayerSprite %
+00000527 : 0fc0f297;   % 1791: 	lw t0,PlayerObjDelay %
+00000528 : ba82a283;   % 1791:  %
+00000529 : 00800313;   % 1792: 	li t1,8 %
+0000052a : 08628063;   % 1793: 	beq t0,t1,IceObjects2 %
+0000052b : 0e504463;   % 1794: 	bgt t0,zero,DoneIceObjs %
+0000052c : 01000293;   % 1796: 	li t0,16 %
+0000052d : 0fc0f317;   % 1797: 	sw t0,PlayerObjDelay,t1 %
+0000052e : b8532823;   % 1797:  %
+0000052f : 00400513;   % 1799: 	li a0,4 # id do objeto (gelo) %
+00000530 : 0fc0f697;   % 1801: 	lw a3,PlayerLastDir %
+00000531 : b906a683;   % 1801:  %
+00000532 : 00000733;   % 1802: 	mv a4,zero ### TODO trocar essa logica para usar o MovPat %
+00000533 : 0fc0fc17;   % 1804: 	lhu s8,PlayerPosX %
+00000534 : b44c5c03;   % 1804:  %
+00000535 : 0fc0fc97;   % 1805: 	lhu s9,PlayerPosY %
+00000536 : b3ecdc83;   % 1805:  %
+00000537 : 00100593;   % 1807: 	li a1,1 # quantidade do objeto %
+00000538 : 008c0293;   % 1808: 	addi t0,s8,8   %
+00000539 : 014c8313;   % 1809: 	addi t1,s9,20 %
+0000053a : 01031613;   % 1810: 	slli a2,t1,16 %
+0000053b : 00560633;   % 1811: 	add a2,a2,t0 %
+0000053c : c85fe0ef;   % 1812: 	jal BuildObject %
+0000053d : 00100593;   % 1814: 	li a1,1 # quantidade do objeto %
+0000053e : 008c0293;   % 1815: 	addi t0,s8,8 %
+0000053f : fecc8313;   % 1816: 	addi t1,s9,-20 %
+00000540 : 01031613;   % 1817: 	slli a2,t1,16 %
+00000541 : 00560633;   % 1818: 	add a2,a2,t0 %
+00000542 : c6dfe0ef;   % 1819: 	jal BuildObject %
+00000543 : 00100593;   % 1821: 	li a1,1 # quantidade do objeto %
+00000544 : fecc0293;   % 1822: 	addi t0,s8,-20 %
+00000545 : 000c8313;   % 1823: 	addi t1,s9,0 %
+00000546 : 01031613;   % 1824: 	slli a2,t1,16 %
+00000547 : 00560633;   % 1825: 	add a2,a2,t0 %
+00000548 : c55fe0ef;   % 1826: 	jal BuildObject %
+00000549 : 0700006f;   % 1828: 	j DoneIceObjs %
+0000054a : 00400513;   % 1831: 	li a0,4 # id do objeto (gelo) %
+0000054b : 0fc0f697;   % 1833: 	lw a3,PlayerLastDir %
+0000054c : b246a683;   % 1833:  %
+0000054d : 00000733;   % 1834: 	mv a4,zero %
+0000054e : 0fc0fc17;   % 1836: 	lhu s8,PlayerPosX %
+0000054f : ad8c5c03;   % 1836:  %
+00000550 : 0fc0fc97;   % 1837: 	lhu s9,PlayerPosY %
+00000551 : ad2cdc83;   % 1837:  %
+00000552 : 00100593;   % 1839: 	li a1,1 # quantidade do objeto %
+00000553 : ff8c0293;   % 1840: 	addi t0,s8,-8 %
+00000554 : 014c8313;   % 1841: 	addi t1,s9,20 %
+00000555 : 01031613;   % 1842: 	slli a2,t1,16 %
+00000556 : 00560633;   % 1843: 	add a2,a2,t0 %
+00000557 : c19fe0ef;   % 1844: 	jal BuildObject %
+00000558 : 00100593;   % 1846: 	li a1,1 # quantidade do objeto %
+00000559 : ff8c0293;   % 1847: 	addi t0,s8,-8 %
+0000055a : fecc8313;   % 1848: 	addi t1,s9,-20 %
+0000055b : 01031613;   % 1849: 	slli a2,t1,16 %
+0000055c : 00560633;   % 1850: 	add a2,a2,t0 %
+0000055d : c01fe0ef;   % 1851: 	jal BuildObject %
+0000055e : 00100593;   % 1853: 	li a1,1 # quantidade do objeto %
+0000055f : 014c0293;   % 1854: 	addi t0,s8,20 %
+00000560 : 000c8313;   % 1855: 	addi t1,s9,0 %
+00000561 : 01031613;   % 1856: 	slli a2,t1,16 %
+00000562 : 00560633;   % 1857: 	add a2,a2,t0 %
+00000563 : be9fe0ef;   % 1858: 	jal BuildObject %
+00000564 : 0040006f;   % 1860: 	j DoneIceObjs %
+00000565 : 0cc000ef;   % 1864: 	jal CheckNextSprAnim %
+00000566 : 0014f493;   % 1865: 	andi s1,s1,1 %
+00000567 : 0fc13a17;   % 1867: 	la s4,kirbyIceAtt1 %
+00000568 : 8b8a0a13;   % 1867:  %
+00000569 : 00300b13;   % 1868: 	li s6,3 %
+0000056a : 08048663;   % 1869: 	beq s1,zero,GotPlayerSprite %
+0000056b : 00100293;   % 1870: 	li t0,1 %
+0000056c : 0fc13a17;   % 1871: 	la s4,kirbyIceAtt2 %
+0000056d : 9b0a0a13;   % 1871:  %
+0000056e : 00300b13;   % 1872: 	li s6,3 %
+0000056f : 06548c63;   % 1873: 	beq s1,t0,GotPlayerSprite %
+00000570 : 0fc0f297;   % 1876: 	lw t0,PlayerObjDelay %
+00000571 : a842a283;   % 1876:  %
+00000572 : 00600313;   % 1877: 	li t1,6 %
+00000573 : 0062a733;   % 1878: 	slt a4,t0,t1 # a4, define se o fogo vai para cima (0) ou para baixo (1) %
+00000574 : 00628a63;   % 1879: 	beq t0,t1,FireObject2 %
+00000575 : 02504863;   % 1880: 	bgt t0,zero,DoneFireObjs %
+00000576 : 00c00293;   % 1882: 	li t0,12 %
+00000577 : 0fc0f317;   % 1883: 	sw t0,PlayerObjDelay,t1 %
+00000578 : a6532423;   % 1883:  %
+00000579 : 00300513;   % 1886: 	li a0,3 # id do objeto (fogo) %
+0000057a : 00100593;   % 1888: 	li a1,1 # quantidade do objeto %
+0000057b : 0fc0f617;   % 1889: 	lw a2,PlayerPosX %
+0000057c : a2462603;   % 1889:  %
+0000057d : 0fc0f697;   % 1890: 	lw a3,PlayerLastDir %
+0000057e : a5c6a683;   % 1890:  %
+0000057f : b79fe0ef;   % 1891: 	jal BuildObject %
+00000580 : 0040006f;   % 1893: 	j DoneFireObjs %
+00000581 : 05c000ef;   % 1896: 	jal CheckNextSprAnim %
+00000582 : 0014f493;   % 1897: 	andi s1,s1,1 %
+00000583 : 0fc12a17;   % 1899: 	la s4,kirbyFireAtt0 %
+00000584 : 524a0a13;   % 1899:  %
+00000585 : 00300b13;   % 1900: 	li s6,3 %
+00000586 : 00048e63;   % 1901: 	beq s1,zero,GotPlayerSprite %
+00000587 : 00100293;   % 1902: 	li t0,1 %
+00000588 : 0fc12a17;   % 1903: 	la s4,kirbyFireAtt1 %
+00000589 : 61ca0a13;   % 1903:  %
+0000058a : 00300b13;   % 1904: 	li s6,3 %
+0000058b : 00548463;   % 1905: 	beq s1,t0,GotPlayerSprite %
+0000058c : f65ff06f;   % 1908: 	j DoneIceObjs %
+0000058d : 0fc0f297;   % 1911: 	sh s1,PlayerAnimCount,t0 %
+0000058e : 9e929c23;   % 1911:  %
+0000058f : 0fc0f297;   % 1912: 	sw s4,PlayerSprite,t0	# armazena o endereco do novo sprite no PlayerSprite %
+00000590 : 9f42ae23;   % 1912:  %
+00000591 : 0fc0f297;   % 1913: 	sh s6,PlayerMaxFrame,t0  # armazena a duracao da animacao atual %
+00000592 : 9f629823;   % 1913:  %
+00000593 : 0fc0f297;   % 1914: 	sw s7,PlayerColSprite,t0  # armazena o sprite de colisao %
+00000594 : 9f72a823;   % 1914:  %
+00000595 : 00012083;   % 1917: 	lw ra,0(sp) %
+00000596 : 00410113;   % 1918: 	addi sp,sp,4			# recupera endereco de retorno da pilha %
+00000597 : 00008067;   % 1920: 	ret %
+00000598 : 0fc0f317;   % 1926: 	lw t1,PlayerLastFrame %
+00000599 : 9e032303;   % 1926:  %
+0000059a : 406a83b3;   % 1928: 	sub t2,s5,t1	 %
+0000059b : 0123ca63;   % 1929: 	blt t2,s2,keepSprAnim %
+0000059c : 00090863;   % 1930: 	beq s2,zero,keepSprAnim		# se estiver chegando de um sprite fixo %
+0000059d : 0fc0f297;   % 1932: 	sw s5,PlayerLastFrame,t0 %
+0000059e : 9d52a623;   % 1932:  %
+0000059f : 00148493;   % 1933: 	addi s1,s1,1 		# avanca o contador de sprites da animacao se a duracao do sprite passou %
+000005a0 : 00008067;   % 1936: 	ret %
+000005a1 : fe010113;   % 1943: 	addi sp,sp,-32 %
+000005a2 : 00112023;   % 1944: 	sw ra,0(sp) %
+000005a3 : 00812223;   % 1945: 	sw s0,4(sp) %
+000005a4 : 00912423;   % 1946: 	sw s1,8(sp) %
+000005a5 : 01212623;   % 1947: 	sw s2,12(sp) %
+000005a6 : 01312823;   % 1948: 	sw s3,16(sp) %
+000005a7 : 01412a23;   % 1949: 	sw s4,20(sp) %
+000005a8 : 01512c23;   % 1950: 	sw s5,24(sp) %
+000005a9 : 01612e23;   % 1951: 	sw s6,28(sp) %
+000005aa : 00b002b3;   % 1953: 	mv t0,a1 %
+000005ab : 00d00a33;   % 1955: 	mv s4,a3 %
+000005ac : 0002d403;   % 1957: 	lhu s0,0(t0) %
+000005ad : 0022d483;   % 1958: 	lhu s1,2(t0)			# salva posicao inicial do sprite	 %
+000005ae : 00851903;   % 1960: 	lh s2,8(a0)			# salva a distancia X para iniciar a desenhar o sprite %
+000005af : 00a51983;   % 1961: 	lh s3,10(a0)			# salva a distancia Y para iniciar a desenhar o sprite %
+000005b0 : 0fc0f297;   % 1963: 	lhu t0,OffsetX %
+000005b1 : 9482d283;   % 1963:  %
+000005b2 : 40540e33;   % 1964: 	sub t3,s0,t0			# subtrai o X do sprite pelo offset X %
+000005b3 : 412e0e33;   % 1965: 	sub t3,t3,s2			# subtrai a distancia X para iniciar o sprite %
+000005b4 : 0fc0f297;   % 1966: 	lhu t0,OffsetY			 %
+000005b5 : 93a2d283;   % 1966:  %
+000005b6 : 40548eb3;   % 1967: 	sub t4,s1,t0			# subtrai o Y do sprite pelo offset Y %
+000005b7 : 413e8eb3;   % 1968: 	sub t4,t4,s3			# subtrai a distancia Y para iniciar o sprite %
+000005b8 : 14000313;   % 1970: 	li t1,320 %
+000005b9 : 0f000393;   % 1971: 	li t2,240 %
+000005ba : 026e6e33;   % 1972: 	rem t3,t3,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial %
+000005bb : 027eeeb3;   % 1973: 	rem t4,t4,t2			# tecnicamente desnecessario por causa do offset, mas mantido por garantia e para testes que mudam a posicao manualmente %
+000005bc : 0fc0f697;   % 1975: 	lw a3,BitmapFrame %
+000005bd : 9106a683;   % 1975:  %
+000005be : 01c682b3;   % 1977: 	add t0,a3,t3 			# adiciona x ao endereco do bitmap %
+000005bf : 03d30333;   % 1979: 	mul t1,t1,t4 %
+000005c0 : 006282b3;   % 1980: 	add t0,t0,t1 			# adiciona y ao endereco do bitmap %
+000005c1 : 00c50313;   % 1982: 	addi t1,a0,12		# endereco do sprite mais spriteHeader %
+000005c2 : 000003b3;   % 1984: 	mv t2,zero %
+000005c3 : 00000e33;   % 1985: 	mv t3,zero %
+000005c4 : 00052e83;   % 1987: 	lw t4,0(a0) 			# guarda a largura do sprite %
+000005c5 : 00452f03;   % 1988: 	lw t5,4(a0) 			# guarda a altura do sprite %
+000005c6 : 040a0e63;   % 1990: 	beq s4,zero,PreLinhaRev %
+000005c7 : 00034f83;   % 1993: 	lbu t6,0(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco) %
+000005c8 : 0b4000ef;   % 1994: 	jal CheckColors %
+000005c9 : 01f28023;   % 1995: 	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente) %
+000005ca : 00134f83;   % 1996: 	lbu t6,1(t1) 			 %
+000005cb : 0a8000ef;   % 1997: 	jal CheckColors %
+000005cc : 01f280a3;   % 1998: 	sb t6,1(t0) 			 %
+000005cd : 00234f83;   % 1999: 	lbu t6,2(t1) 			 %
+000005ce : 09c000ef;   % 2000: 	jal CheckColors %
+000005cf : 01f28123;   % 2001: 	sb t6,2(t0) 			 %
+000005d0 : 00334f83;   % 2002: 	lbu t6,3(t1) 			 %
+000005d1 : 090000ef;   % 2003: 	jal CheckColors %
+000005d2 : 01f281a3;   % 2004: 	sb t6,3(t0) 			 %
+000005d3 : 00428293;   % 2006: 	addi t0,t0,4 			# avanca o endereco do bitmap display em 4 %
+000005d4 : 00430313;   % 2007: 	addi t1,t1,4 			# avanca o endereco da imagem em 4 %
+000005d5 : 004e0e13;   % 2009: 	addi t3,t3,4 			# avanca o contador de colunas em 4 %
+000005d6 : fdde42e3;   % 2010: 	blt t3,t4,Linha 		# enquanto a linha nao estiver completa, continua desenhando ela %
+000005d7 : 14028293;   % 2012: 	addi t0,t0,320 			# avanca para a proxima linha %
+000005d8 : 41d282b3;   % 2013: 	sub t0,t0,t4 			# subtrai a largura do sprite %
+000005d9 : 00000e33;   % 2015: 	mv t3,zero 			# reseta o contador de colunas %
+000005da : 00138393;   % 2016: 	addi t2,t2,1 			# avanca o contador de linhas em 1 %
+000005db : fbe3c8e3;   % 2017: 	blt t2,t5,Linha 		# enquanto o contador de linhas for menor que a altura repete a funcao %
+000005dc : 0d40006f;   % 2018: 	j FimPrint %
+000005dd : 01d282b3;   % 2021: 	add t0,t0,t4 %
+000005de : ffc28293;   % 2022: 	addi t0,t0,-4 %
+000005df : 00334f83;   % 2025: 	lbu t6,3(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco) %
+000005e0 : 054000ef;   % 2026: 	jal CheckColors %
+000005e1 : 01f28023;   % 2027: 	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente) %
+000005e2 : 00234f83;   % 2028: 	lbu t6,2(t1) 			 %
+000005e3 : 048000ef;   % 2029: 	jal CheckColors %
+000005e4 : 01f280a3;   % 2030: 	sb t6,1(t0) 			 %
+000005e5 : 00134f83;   % 2031: 	lbu t6,1(t1) 			 %
+000005e6 : 03c000ef;   % 2032: 	jal CheckColors %
+000005e7 : 01f28123;   % 2033: 	sb t6,2(t0) 			 %
+000005e8 : 00034f83;   % 2034: 	lbu t6,0(t1) 			 %
+000005e9 : 030000ef;   % 2035: 	jal CheckColors %
+000005ea : 01f281a3;   % 2036: 	sb t6,3(t0)  %
+000005eb : ffc28293;   % 2038: 	addi t0,t0,-4 			# recua o endereco do bitmap display em 4 %
+000005ec : 00430313;   % 2039: 	addi t1,t1,4 			# avanca o endereco da imagem em 4 %
+000005ed : 004e0e13;   % 2041: 	addi t3,t3,4 			# avanca o contador de colunas em 4 %
+000005ee : fdde42e3;   % 2042: 	blt t3,t4,LinhaReverse 		# enquanto a linha nao estiver completa, continua desenhando ela %
+000005ef : 14028293;   % 2044: 	addi t0,t0,320 			# avanca para a proxima linha %
+000005f0 : 01d282b3;   % 2045: 	add t0,t0,t4 %
+000005f1 : 00000e33;   % 2047: 	mv t3,zero 			# reseta o contador de colunas %
+000005f2 : 00138393;   % 2048: 	addi t2,t2,1 			# avanca o contador de linhas em 1 %
+000005f3 : fbe3c8e3;   % 2049: 	blt t2,t5,LinhaReverse 		# enquanto o contador de linhas for menor que a altura repete a funcao %
+000005f4 : 0740006f;   % 2050: 	j FimPrint %
+000005f5 : 06070663;   % 2054: 	beq a4,zero,EndCheckColors %
+000005f6 : 00100b13;   % 2055: 	li s6,1 %
+000005f7 : 01670863;   % 2056: 	beq a4,s6,FireColors %
+000005f8 : 00200b13;   % 2057: 	li s6,2 %
+000005f9 : 03670663;   % 2058: 	beq a4,s6,IceColors %
+000005fa : 0580006f;   % 2059: 	j EndCheckColors %
+000005fb : 09f00b13;   % 2062: 	li s6,159 %
+000005fc : 016f8863;   % 2063: 	beq t6,s6,DarkFire %
+000005fd : 0ef00b13;   % 2064: 	li s6,239 %
+000005fe : 016f8863;   % 2065: 	beq t6,s6,LightFire %
+000005ff : 0440006f;   % 2066: 	j EndCheckColors %
+00000600 : 06700f93;   % 2067: DarkFire: li t6,103 %
+00000601 : 03c0006f;   % 2068: 	j EndCheckColors %
+00000602 : 0b700f93;   % 2069: LightFire: li t6,183 %
+00000603 : 0340006f;   % 2070: 	j EndCheckColors %
+00000604 : 000f8c63;   % 2073: 	beq t6,zero,BorderIce %
+00000605 : 09f00b13;   % 2074: 	li s6,159 %
+00000606 : 016f8c63;   % 2075: 	beq t6,s6,DarkIce %
+00000607 : 0ef00b13;   % 2076: 	li s6,239 %
+00000608 : 016f8c63;   % 2077: 	beq t6,s6,LightIce %
+00000609 : 01c0006f;   % 2078: 	j EndCheckColors %
+0000060a : 08100f93;   % 2079: BorderIce: li t6,129 %
+0000060b : 0140006f;   % 2080: 	j EndCheckColors %
+0000060c : 0eb00f93;   % 2081: DarkIce: li t6,235 %
+0000060d : 00c0006f;   % 2082: 	j EndCheckColors %
+0000060e : 0ff00f93;   % 2083: LightIce: li t6,255 %
+0000060f : 0040006f;   % 2084: 	j EndCheckColors %
+00000610 : 00008067;   % 2086: 	ret %
+00000611 : 00012083;   % 2089: 	lw ra,0(sp) %
+00000612 : 00412403;   % 2090: 	lw s0,4(sp) %
+00000613 : 00812483;   % 2091: 	lw s1,8(sp) %
+00000614 : 00c12903;   % 2092: 	lw s2,12(sp) %
+00000615 : 01012983;   % 2093: 	lw s3,16(sp) %
+00000616 : 01412a03;   % 2094: 	lw s4,20(sp) %
+00000617 : 01812a83;   % 2095: 	lw s5,24(sp) %
+00000618 : 01c12b03;   % 2096: 	lw s6,28(sp) %
+00000619 : 02010113;   % 2097: 	addi sp,sp,32 %
+0000061a : 00008067;   % 2099: 	ret  %
+0000061b : fe010113;   % 2104: 	addi sp,sp,-32 %
+0000061c : 00112023;   % 2105: 	sw ra,0(sp) %
+0000061d : 00812223;   % 2106: 	sw s0,4(sp) %
+0000061e : 00912423;   % 2107: 	sw s1,8(sp) %
+0000061f : 01212623;   % 2108: 	sw s2,12(sp) %
+00000620 : 01312823;   % 2109: 	sw s3,16(sp) %
+00000621 : 01412a23;   % 2110: 	sw s4,20(sp) %
+00000622 : 01512c23;   % 2111: 	sw s5,24(sp) %
+00000623 : 01612e23;   % 2112: 	sw s6,28(sp) %
+00000624 : 00055583;   % 2114: 	lhu a1,0(a0)			# a1, posicao X original do sprite %
+00000625 : 00255603;   % 2115: 	lhu a2,2(a0)			# a2, posicao Y original do sprite %
+00000626 : 0045d493;   % 2118: 	srli s1,a1,4			# s1, divisao da posicao X por 16 %
+00000627 : 00465993;   % 2121: 	srli s3,a2,4			# s3, divisao da posicao Y por 16 %
+00000628 : 0fc0f297;   % 2123: 	la t0,mapa40x30 #mapaCodesAtual			 %
+00000629 : f1c28293;   % 2123:  %
+0000062a : 0002a303;   % 2124: 	lw t1,0(t0)			# t1, tamanho do mapa de tiles %
+0000062b : 026983b3;   % 2125: 	mul t2,s3,t1			 %
+0000062c : 00c28293;   % 2127: 	addi t0,t0,12 %
+0000062d : 009282b3;   % 2128: 	add t0,t0,s1			# adiciona o numero de colunas de tiles %
+0000062e : 007282b3;   % 2129: 	add t0,t0,t2			# adiciona o numero de linhas de tiles %
+0000062f : 0002ce83;   % 2131: 	lbu t4,0(t0)			# valor do primeiro tile -> t4 = 0x00000011 %
+00000630 : 0012ce03;   % 2133: 	lbu t3,1(t0)			# valor do segundo tile %
+00000631 : 008e1e13;   % 2134: 	slli t3,t3,8 %
+00000632 : 01ce8eb3;   % 2135: 	add t4,t4,t3			# t4 = 0x00002211 %
+00000633 : 006282b3;   % 2137: 	add t0,t0,t1			 %
+00000634 : 0002ce03;   % 2138: 	lbu t3,0(t0)			# valor do terceiro tile %
+00000635 : 010e1e13;   % 2139: 	slli t3,t3,16 %
+00000636 : 01ce8eb3;   % 2140: 	add t4,t4,t3			# t4 = 0x00332211 %
+00000637 : 0012ce03;   % 2142: 	lbu t3,1(t0)			# valor do quarto tile %
+00000638 : 018e1e13;   % 2143: 	slli t3,t3,24 %
+00000639 : 01ce8eb3;   % 2144: 	add t4,t4,t3			# t4 = 0x44332211 %
+0000063a : 0fc0ea17;   % 2146: 	la s4,BGTileCodes		# s4, endereco com todos os codigos de tile %
+0000063b : 760a0a13;   % 2146:  %
+0000063c : 01da2023;   % 2147: 	sw t4,0(s4)			 %
+0000063d : 00000ab3;   % 2148: 	mv s5,zero			# s5, contador de tiles %
+0000063e : 000a4b03;   % 2151: 	lbu s6,0(s4) 			# s6, codigo do tile atual %
+0000063f : 00100e13;   % 2153: 	li t3,1				# analise dos codigos de tile %
+00000640 : 03cb0663;   % 2154: 	beq s6,t3,GetColTile1 %
+00000641 : 00200e13;   % 2155: 	li t3,2 %
+00000642 : 03cb0863;   % 2156: 	beq s6,t3,GetColTile2 %
+00000643 : 00300e13;   % 2157: 	li t3,3 %
+00000644 : 03cb0a63;   % 2158: 	beq s6,t3,GetColTile3 %
+00000645 : 00400e13;   % 2159: 	li t3,4 %
+00000646 : 03cb0c63;   % 2160: 	beq s6,t3,GetColTile4 %
+00000647 : 00500e13;   % 2161: 	li t3,5 %
+00000648 : 03cb0e63;   % 2162: 	beq s6,t3,GetColTile5 %
+00000649 : 00600e13;   % 2163: 	li t3,6 %
+0000064a : 05cb0063;   % 2164: 	beq s6,t3,GetColTile6 %
+0000064b : 0fc14797;   % 2168: 	la a5,emptyCol %
+0000064c : 34878793;   % 2168:  %
+0000064d : 0400006f;   % 2169: 	j GotLimparTile %
+0000064e : 0fc14797;   % 2172: 	la a5,emptyCol %
+0000064f : 33c78793;   % 2172:  %
+00000650 : 0340006f;   % 2173: 	j GotLimparTile %
+00000651 : 0fc14797;   % 2176: 	la a5,plataforma1Col %
+00000652 : 43c78793;   % 2176:  %
+00000653 : 0280006f;   % 2177: 	j GotLimparTile %
+00000654 : 0fc14797;   % 2180: 	la a5,plataforma2Col %
+00000655 : 53c78793;   % 2180:  %
+00000656 : 01c0006f;   % 2181: 	j GotLimparTile %
+00000657 : 0fc14797;   % 2184: 	la a5,plataforma3Col %
+00000658 : 63c78793;   % 2184:  %
+00000659 : 0100006f;   % 2185: 	j GotLimparTile %
+0000065a : 0fc14797;   % 2188: 	la a5,blocoExempCol %
+0000065b : 20078793;   % 2188:  %
+0000065c : 0040006f;   % 2189: 	j GotLimparTile %
+0000065d : 0fc14297;   % 2193: 	la t0,collisionRender %
+0000065e : df428293;   % 2193:  %
+0000065f : 000a8863;   % 2195: 	beq s5,zero,LeftColTile %
+00000660 : 00200313;   % 2196: 	li t1,2 %
+00000661 : 006a8463;   % 2197: 	beq s5,t1,LeftColTile %
+00000662 : 01028293;   % 2199: 	addi t0,t0,16 %
+00000663 : 006ac463;   % 2201: 	blt s5,t1,UpperColTile %
+00000664 : 20028293;   % 2203: 	addi t0,t0,512 %
+00000665 : 00f00333;   % 2206: 	mv t1,a5 %
+00000666 : 00c30313;   % 2207: 	addi t1,t1,12 %
+00000667 : 000003b3;   % 2208: 	mv t2,zero			# t2, contador de colunas %
+00000668 : 00000e33;   % 2209: 	mv t3,zero			# t3, contador de linhas %
+00000669 : 01000e93;   % 2210: 	li t4,16 %
+0000066a : 01000f13;   % 2211: 	li t5,16 %
+0000066b : 00032f83;   % 2215: 	lw t6,0(t1) 			# guarda uma word do tile %
+0000066c : 01f2a023;   % 2216: 	sw t6,0(t0) 			# salva no render de colisao %
+0000066d : 00428293;   % 2218: 	addi t0,t0,4			# avanca o endereco do bitmap em 1 %
+0000066e : 00430313;   % 2219: 	addi t1,t1,4 			# avanca o endereco da imagem em 1		 %
+0000066f : 00438393;   % 2221: 	addi t2,t2,4 			# avanca o contador de colunas em 1 %
+00000670 : ffd3c6e3;   % 2222: 	blt t2,t4,SaveTileRenderCol 	# enquanto a linha nao estiver completa, continua desenhando ela %
+00000671 : 01028293;   % 2224: 	addi t0,t0,16 			# avanca para a proxima linha do render %
+00000672 : 000003b3;   % 2226: 	mv t2,zero 			# reseta o contador de colunas %
+00000673 : 001e0e13;   % 2227: 	addi t3,t3,1 			# avanca o contador de linhas em 1 %
+00000674 : fdee4ee3;   % 2228: 	blt t3,t5,SaveTileRenderCol 	# enquanto o contador de linhas for menor que a altura repete a funcao %
+00000675 : 001a0a13;   % 2231: 	addi s4,s4,1			# avanca para o proximo codigo de tile %
+00000676 : 001a8a93;   % 2232: 	addi s5,s5,1			# avanca o contador de tiles %
+00000677 : 00400393;   % 2234: 	li t2,4 %
+00000678 : 007a8463;   % 2235: 	beq s5,t2,FimRenderCol		# se ja foram todos os 4 tiles segue com o CollisionUpdate %
+00000679 : f15ff06f;   % 2236: 	j LoopRenderCol %
+0000067a : 00012083;   % 2244: 	lw ra,0(sp) %
+0000067b : 00412403;   % 2245: 	lw s0,4(sp) %
+0000067c : 00812483;   % 2246: 	lw s1,8(sp) %
+0000067d : 00c12903;   % 2247: 	lw s2,12(sp) %
+0000067e : 01012983;   % 2248: 	lw s3,16(sp) %
+0000067f : 01412a03;   % 2249: 	lw s4,20(sp) %
+00000680 : 01812a83;   % 2250: 	lw s5,24(sp) %
+00000681 : 01c12b03;   % 2251: 	lw s6,28(sp) %
+00000682 : 02010113;   % 2252: 	addi sp,sp,32 %
+00000683 : 00008067;   % 2254: 	ret  %
+00000684 : 0fc0e297;   % 2263: 	lhu t0,OffsetX %
+00000685 : 5f82d283;   % 2263:  %
+00000686 : 00f2f413;   % 2264: 	andi s0,t0,0xf		# s0, resto de offset X por 16 %
+00000687 : 0042d493;   % 2265: 	srli s1,t0,4		# s1, divisao de offset X por 16 %
+00000688 : 0fc0e317;   % 2267: 	lhu t1,OffsetY %
+00000689 : 5ea35303;   % 2267:  %
+0000068a : 00f37913;   % 2268: 	andi s2,t1,0xf		# s2, resto de offset Y por 16 %
+0000068b : 00435993;   % 2269: 	srli s3,t1,4		# s3, divisao de offset Y por 16 %
+0000068c : 00000a33;   % 2271: 	mv s4,zero		# s4, contador de colunas de tiles %
+0000068d : 00000ab3;   % 2272: 	mv s5,zero		# s5, contador de linhas de tiles %
+0000068e : 00000b33;   % 2273: 	mv s6,zero		# s6, contador total de tiles %
+0000068f : 01500b93;   % 2275: 	li s7,21		# s7, numero maximo de tiles na horizontal %
+00000690 : 01000c13;   % 2276: 	li s8,16		# s8, numero maximo de tiles na vertical %
+00000691 : 15000c93;   % 2277: 	li s9,336		# s9, numero total de tiles que precisam ser analisados (21 na horizontal * 16 na vertical)  %
+00000692 : 299b0663;   % 2281: 	beq s6,s9,FimPrintMapa	# continua o c�digo quando todos os tiles forem analisados %
+00000693 : 0fc0f517;   % 2283: 	la a0,mapa40x30 %
+00000694 : d7050513;   % 2283:  %
+00000695 : 00052303;   % 2285: 	lw t1,0(a0) %
+00000696 : 00950533;   % 2287: 	add a0,a0,s1		# adiciona offsetX/16 %
+00000697 : 01450533;   % 2288: 	add a0,a0,s4		# adiciona contador de colunas %
+00000698 : 013002b3;   % 2290: 	mv t0,s3		# adiciona offsetY/16 %
+00000699 : 015282b3;   % 2291: 	add t0,t0,s5		# adiciona contador de linhas %
+0000069a : 026282b3;   % 2292: 	mul t0,t0,t1		# multiplica por 40 (tamanho das linhas do mapa completo) %
+0000069b : 00550533;   % 2293: 	add a0,a0,t0		 %
+0000069c : 00c50513;   % 2295: 	addi a0,a0,12 %
+0000069d : 00054283;   % 2296: 	lbu t0,0(a0)		# armazena o valor do tile a ser salvo %
+0000069e : 00100313;   % 2298: 	li t1,1			# analisa os codigos de tile %
+0000069f : 02628663;   % 2299: 	beq t0,t1,GetTile1 %
+000006a0 : 00200313;   % 2300: 	li t1,2 %
+000006a1 : 02628c63;   % 2301: 	beq t0,t1,GetTile2 %
+000006a2 : 00300313;   % 2302: 	li t1,3 %
+000006a3 : 04628263;   % 2303: 	beq t0,t1,GetTile3 %
+000006a4 : 00400313;   % 2304: 	li t1,4 %
+000006a5 : 04628863;   % 2305: 	beq t0,t1,GetTile4 %
+000006a6 : 00500313;   % 2306: 	li t1,5 %
+000006a7 : 04628e63;   % 2307: 	beq t0,t1,GetTile5 %
+000006a8 : 00600313;   % 2308: 	li t1,6 %
+000006a9 : 06628463;   % 2309: 	beq t0,t1,GetTile6 %
+000006aa : 0fc0e597;   % 2312: 	la a1,grama %
+000006ab : 7d858593;   % 2312:  %
+000006ac : 0fc14797;   % 2313: 	la a5,emptyCol %
+000006ad : 1c478793;   % 2313:  %
+000006ae : 0680006f;   % 2314: 	j GotTile %
+000006af : 0fc0e597;   % 2316: 	la a1,chao %
+000006b0 : 6b858593;   % 2316:  %
+000006b1 : 0fc14797;   % 2317: 	la a5,emptyCol %
+000006b2 : 1b078793;   % 2317:  %
+000006b3 : 0540006f;   % 2318: 	j GotTile %
+000006b4 : 0fc0f597;   % 2320: 	la a1,plataforma1 %
+000006b5 : 8bc58593;   % 2320:  %
+000006b6 : 0fc14797;   % 2321: 	la a5,plataforma1Col %
+000006b7 : 2a878793;   % 2321:  %
+000006b8 : 0400006f;   % 2322: 	j GotTile %
+000006b9 : 0fc0f597;   % 2324: 	la a1,plataforma2 %
+000006ba : 9b458593;   % 2324:  %
+000006bb : 0fc14797;   % 2325: 	la a5,plataforma2Col %
+000006bc : 3a078793;   % 2325:  %
+000006bd : 02c0006f;   % 2326: 	j GotTile %
+000006be : 0fc0f597;   % 2328: 	la a1,plataforma3 %
+000006bf : aac58593;   % 2328:  %
+000006c0 : 0fc14797;   % 2329: 	la a5,plataforma3Col %
+000006c1 : 49878793;   % 2329:  %
+000006c2 : 0180006f;   % 2330: 	j GotTile %
+000006c3 : 0fc0f597;   % 2332: 	la a1,blocoExemp %
+000006c4 : ba458593;   % 2332:  %
+000006c5 : 0fc14797;   % 2333: 	la a5,blocoExempCol %
+000006c6 : 05478793;   % 2333:  %
+000006c7 : 0040006f;   % 2334: 	j GotTile %
+000006c8 : fff00613;   % 2338: 	addi a2,zero,-1 %
+000006c9 : 000a0a63;   % 2339: 	beq s4,zero,DoneColOffset	# define a2 como -1 se for a primeira coluna %
+000006ca : 00100613;   % 2341: 	addi a2,zero,1		 %
+000006cb : fffb8293;   % 2342: 	addi t0,s7,-1 %
+000006cc : 005a0463;   % 2343: 	beq s4,t0,DoneColOffset		# define a2 como 1 se for a ultima coluna %
+000006cd : 00000633;   % 2345: 	mv a2,zero			# define a2 como 0 se for a qualquer uma das outras colunas  %
+000006ce : fff00693;   % 2348: 	addi a3,zero,-1 %
+000006cf : 000a8a63;   % 2349: 	beq s5,zero,DoneLineOffset	# define a2 como -1 se for a primeira linha %
+000006d0 : 00100693;   % 2351: 	addi a3,zero,1 %
+000006d1 : fffc0293;   % 2352: 	addi t0,s8,-1 %
+000006d2 : 005a8463;   % 2353: 	beq s5,t0,DoneLineOffset	# define a2 como 1 se for a ultima linha %
+000006d3 : 000006b3;   % 2355: 	mv a3,zero			# define a2 como 0 se for a qualquer uma das outras linhas %
+000006d4 : 02061463;   % 2358: 	bne a2,zero,SaveTile		# se for uma coluna inicial ou final vai para SaveTile %
+000006d5 : 02069263;   % 2359: 	bne a3,zero,SaveTile		# se for uma linha inicial ou final vai para SaveTile %
+000006d6 : 0ec0006f;   % 2361: 	j SaveCenterTile		# tiles do meio s�o mais simples ent�o podem ser salvos mais rapidamente %
+000006d7 : 001a0a13;   % 2364: 	addi s4,s4,1			# avanca contador de colunas de tiles %
+000006d8 : 001b0b13;   % 2365: 	addi s6,s6,1			# avanca contador total de tile %
+000006d9 : 017a5463;   % 2366: 	bge s4,s7,NextLine		# se estiver no fim de uma linha vai para a proxima %
+000006da : ee1ff06f;   % 2367: 	j LoopBuild %
+000006db : 00000a33;   % 2370: 	mv s4,zero		 %
+000006dc : 001a8a93;   % 2371: 	addi s5,s5,1			# avanca contador de linhas %
+000006dd : ed5ff06f;   % 2372: 	j LoopBuild %
+000006de : 01400333;   % 2377: 	mv t1,s4 %
+000006df : 00431313;   % 2379: 	slli t1,t1,4			# multiplica numero da coluna por 16 (tamanho dos tiles) %
+000006e0 : 00064463;   % 2380: 	blt a2,zero,FirstCol %
+000006e1 : 40830333;   % 2382: 	sub t1,t1,s0			# resto do offset X subtra�do do bitmap (puxa para a esquerda as colunas, se ocorrer na 1a = erro) %
+000006e2 : 015003b3;   % 2385: 	mv t2,s5 %
+000006e3 : 14000293;   % 2386: 	li t0,320 %
+000006e4 : 025383b3;   % 2387: 	mul t2,t2,t0			# multiplica numero da linha por 320 (tamanho das linhas do bitmap) %
+000006e5 : 00439393;   % 2388: 	slli t2,t2,4			# multiplica numero da linha por 16 (tamanho dos tiles) %
+000006e6 : 0006c663;   % 2389: 	blt a3,zero,FirstLine %
+000006e7 : 025902b3;   % 2391: 	mul t0,s2,t0 %
+000006e8 : 405383b3;   % 2392: 	sub t2,t2,t0			# resto do offset Y vezes 320 subtra�do do bitmap (sobe as linhas, se ocorrer na 1a = erro) %
+000006e9 : 0fc0e717;   % 2395: 	lw a4,BitmapFrame %
+000006ea : 45c72703;   % 2395:  %
+000006eb : 006702b3;   % 2396: 	add t0,a4,t1 %
+000006ec : 007282b3;   % 2397: 	add t0,t0,t2 			# t0 = endereco base para salvar o sprite do tile %
+000006ed : 00c58313;   % 2399: 	addi t1,a1,12		# endereco do sprite mais spriteHeader %
+000006ee : 000003b3;   % 2401: 	mv t2,zero			# contador de colunas do tile %
+000006ef : 00000e33;   % 2402: 	mv t3,zero			# contador de linhas do tile	 %
+000006f0 : 408c0eb3;   % 2404: 	sub t4,s8,s0			 %
+000006f1 : 00064863;   % 2405: 	blt a2,zero,SetColSize		# na 1a coluna a largura do tile ser� 16-OffsetX %
+000006f2 : 00800eb3;   % 2406: 	mv t4,s0 %
+000006f3 : 00c04463;   % 2407: 	bgt a2,zero,SetColSize		# na ultima coluna a largura do tile ser� OffsetX %
+000006f4 : 0005ae83;   % 2408: 	lw t4,0(a1)			# nas outras colunas a largura do tile � 16 %
+000006f5 : f80e84e3;   % 2410: 	beq t4,zero,FimSaveTile 	# se a ultima coluna nao estiver aparecendo, t4 = 0 e o tile pode ser skipado %
+000006f6 : 412c0f33;   % 2412: 	sub t5,s8,s2		 %
+000006f7 : 0006c863;   % 2413: 	blt a3,zero,SetLineSize		# na 1a linha a altura do tile ser� 16-OffsetY %
+000006f8 : 01200f33;   % 2414: 	mv t5,s2 %
+000006f9 : 00d04463;   % 2415: 	bgt a3,zero,SetLineSize		# na 1a linha a altura do tile ser� OffsetY %
+000006fa : 0045af03;   % 2416: 	lw t5,4(a1)			# nas outras linhas a altura do tile � 16 %
+000006fb : f60f08e3;   % 2418: 	beq t5,zero,FimSaveTile 	# se a ultima linha nao estiver aparecendo, t5 = 0 e o tile pode ser skipado %
+000006fc : 0006d863;   % 2420: 	bge a3,zero,NotFirstLine %
+000006fd : 01200fb3;   % 2422: 	mv t6,s2 %
+000006fe : 004f9f93;   % 2423: 	slli t6,t6,4 %
+000006ff : 01f30333;   % 2424: 	add t1,t1,t6			# adiciona o tamanho das linhas fora da tela ao endereco do sprite %
+00000700 : 00065463;   % 2429: 	bge a2,zero,NotFirstCol %
+00000701 : 00830333;   % 2431: 	add t1,t1,s0			# adiciona resto do offset X ao endereco do sprite %
+00000702 : 00034f83;   % 2436: 	lbu t6,0(t1) 			# guarda um pixel do sprite %
+00000703 : 01f28023;   % 2437: 	sb t6,0(t0) 			# desenha no bitmap display um pixel do sprite (j� que tamanho das linhas pode variar de 1 a 16) %
+00000704 : 00128293;   % 2439: 	addi t0,t0,1 			# avanca o endereco do bitmap display %
+00000705 : 00130313;   % 2440: 	addi t1,t1,1 			# avanca o endereco da imagem %
+00000706 : 00138393;   % 2442: 	addi t2,t2,1 			# avanca o contador de colunas %
+00000707 : ffd3c6e3;   % 2443: 	blt t2,t4,TileLine 		# enquanto a linha nao estiver completa, continua desenhando ela %
+00000708 : 00c05663;   % 2445: 	ble a2,zero,NotLastCol %
+00000709 : 01830333;   % 2447: 	add t1,t1,s8			 %
+0000070a : 40830333;   % 2448: 	sub t1,t1,s0			# se estiver na ultima coluna, adiciona 16-OffsetX ao endereco do sprite %
+0000070b : 14028293;   % 2451: 	addi t0,t0,320 			# avanca para a proxima linha do bitmap %
+0000070c : 41d282b3;   % 2452: 	sub t0,t0,t4 			# subtrai a largura do sprite %
+0000070d : 000003b3;   % 2454: 	mv t2,zero 			# reseta o contador de colunas %
+0000070e : 001e0e13;   % 2455: 	addi t3,t3,1 			# avanca o contador de linhas %
+0000070f : fdee42e3;   % 2456: 	blt t3,t5,PreTileLine 		# enquanto o contador de linhas for menor que a altura repete a funcao %
+00000710 : f1dff06f;   % 2458: 	j FimSaveTile  %
+00000711 : 01400333;   % 2463: 	mv t1,s4 %
+00000712 : 00431313;   % 2464: 	slli t1,t1,4			# multiplica numero da coluna por 16 (tamanho dos tiles) %
+00000713 : 40830333;   % 2465: 	sub t1,t1,s0			# subtrai endereco do bitmap por OffsetX (ja que nesse caso ele sempre sera no minimo 16)  %
+00000714 : 015003b3;   % 2467: 	mv t2,s5 %
+00000715 : 14000293;   % 2468: 	li t0,320 %
+00000716 : 025383b3;   % 2469: 	mul t2,t2,t0			# multiplica numero da linha por 320 (tamanho das linhas do bitmap) %
+00000717 : 00439393;   % 2470: 	slli t2,t2,4			# multiplica numero da linha por 16 (tamanho dos tiles) %
+00000718 : 025902b3;   % 2471: 	mul t0,s2,t0 %
+00000719 : 405383b3;   % 2472: 	sub t2,t2,t0			# subtrai endereco do bitmap por 320xOffsetY (ja que nesse caso ele sempre sera no minimo 320x16)  %
+0000071a : 0fc0e297;   % 2474: 	lw t0,BitmapFrame %
+0000071b : 3982a283;   % 2474:  %
+0000071c : 006282b3;   % 2475: 	add t0,t0,t1 %
+0000071d : 007282b3;   % 2476: 	add t0,t0,t2 			# t0, endereco base para salvar o sprite do tile %
+0000071e : 00c58313;   % 2478: 	addi t1,a1,12		# endereco do sprite mais spriteHeader %
+0000071f : 000003b3;   % 2480: 	mv t2,zero			# contador de colunas do tile %
+00000720 : 00000e33;   % 2481: 	mv t3,zero			# contador de linhas do tile	 %
+00000721 : 0005ae83;   % 2483: 	lw t4,0(a1) 			# guarda a largura do tile %
+00000722 : 0045af03;   % 2484: 	lw t5,4(a1)			# guarda a altura do tile %
+00000723 : 00034f83;   % 2488: 	lbu t6,0(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco) %
+00000724 : 01f28023;   % 2489: 	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente) %
+00000725 : 00134f83;   % 2490: 	lbu t6,1(t1) 			 %
+00000726 : 01f280a3;   % 2491: 	sb t6,1(t0) %
+00000727 : 00234f83;   % 2492: 	lbu t6,2(t1) 			 %
+00000728 : 01f28123;   % 2493: 	sb t6,2(t0) %
+00000729 : 00334f83;   % 2494: 	lbu t6,3(t1) 			 %
+0000072a : 01f281a3;   % 2495: 	sb t6,3(t0) %
+0000072b : 00428293;   % 2497: 	addi t0,t0,4			# avanca o endereco do bitmap display %
+0000072c : 00430313;   % 2498: 	addi t1,t1,4 			# avanca o endereco da imagem %
+0000072d : 00438393;   % 2500: 	addi t2,t2,4 			# avanca o contador de colunas %
+0000072e : fdd3cae3;   % 2501: 	blt t2,t4,CenterTileLine 	# enquanto a linha nao estiver completa, continua desenhando ela %
+0000072f : 14028293;   % 2503: 	addi t0,t0,320 			# avanca para a proxima linha do bitmap %
+00000730 : 41d282b3;   % 2504: 	sub t0,t0,t4 			# subtrai a largura do sprite %
+00000731 : 000003b3;   % 2506: 	mv t2,zero 			# reseta o contador de colunas %
+00000732 : 001e0e13;   % 2507: 	addi t3,t3,1 			# avanca o contador de linhas %
+00000733 : fdee40e3;   % 2508: 	blt t3,t5,CenterTileLine 	# enquanto o contador de linhas for menor que a altura repete a funcao %
+00000734 : e8dff06f;   % 2510: 	j FimSaveTile  %
+00000735 : 00008067;   % 2513: 	ret %
+END;

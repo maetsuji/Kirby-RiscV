@@ -9,7 +9,7 @@ OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que 
 OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
 
 PlayerPosX: 	.half 32	# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
-PlayerPosY: 	.half 32	# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
+PlayerPosY: 	.half 16	# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
 OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual)  ## nao mais utilizado atualmente
 TempPlayerPos:	.word 0
 PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
@@ -246,7 +246,7 @@ NewInstance:
 	addi a1,a1,-1
 	
 	li a7,1
-	ecall
+	#ecall
 	
 	li t0,1
 	beq a0,t0,BuildDust
@@ -387,11 +387,11 @@ IterateDrawObjs:
 	
 	mv a0,s2
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall
+	#ecall
 	
 	bne s2,zero,DrawObjAtual
 	
@@ -466,37 +466,37 @@ DrawTinyDust: # ordem: 1 e 3, 0 e 5, 2 e 4
 	beq s7,t0,DrawTinyRD # 5 = dir baixo 
 DrawTinyLU:
 	li t1,20
-	li t2,-8
+	li t2,-10
 	li t3,-2
 	addi s5,s5,1
 	j DoneTinyPos
 DrawTinyMU:
 	li t1,36
-	li t2,-8
+	li t2,-10
 	li t3,-4
 	addi s5,s5,1
 	j DoneTinyPos
 DrawTinyRU:
 	li t1,52
-	li t2,-10
+	li t2,-12
 	li t3,-3
 	addi s5,s5,1
 	j DoneTinyPos
 DrawTinyLD:
 	li t1,20
-	li t2,8
+	li t2,6
 	li t3,-2
 	addi s5,s5,-1
 	j DoneTinyPos
 DrawTinyMD:
 	li t1,36
-	li t2,8
+	li t2,6
 	li t3,-4
 	addi s5,s5,-1
 	j DoneTinyPos
 DrawTinyRD:
 	li t1,52
-	li t2,8
+	li t2,6
 	li t3,-3
 	addi s5,s5,-1
 
@@ -523,10 +523,10 @@ DrawTinyDustRight:
 	mv a3,s6
 	mv a4,zero
 	
-	la a0,tinyDust
-	addi t0,s8,2
+	la a0,tinyDust0
+	andi t0,s8,2
 	beq t0,zero,DrawObjReady
-	la a0,tinyDust
+	la a0,tinyDust1
 	
 	j DrawObjReady
 	
@@ -656,11 +656,11 @@ DrawObjReady:
 	
 	mv a0,s8 ###
 	li a7,1
-	ecall
+	#ecall
 
 	la a0,endl
 	li a7,4
-	ecall
+	#ecall
 	
 	addi s8,s8,-1
 	sh s8,12(s0)
@@ -675,7 +675,7 @@ FimDrawObjects:
 	
 	la a0,endl
 	li a7,4
-	ecall
+	#ecall
 
 	ret
 
@@ -1599,6 +1599,10 @@ PlayerBigWalk:
 	la s4,kirbyBigWalk0
 	li s6,10
 	beq s1,zero,GotPlayerSprite
+	
+	lh t1,PlayerSpeedY # se o jogador estiver caindo trava nessa animacao
+	bgt t1,zero,GotPlayerSprite
+	
 	li t0,1
 	la s4,kirbyBigWalk1
 	li s6,10
@@ -1963,6 +1967,8 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do spri
 	sub t4,s1,t0			# subtrai o Y do sprite pelo offset Y
 	sub t4,t4,s3			# subtrai a distancia Y para iniciar o sprite
 	
+	blt t3,zero,FimPrint		# se x for menor que 0 impede que algo seja impresso no outro lado do bitmap
+	
 	li t1,320
 	li t2,240
 	rem t3,t3,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial
@@ -1986,6 +1992,8 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do spri
 	beq s4,zero,PreLinhaRev
 
 Linha: 		# t0 = endereco do bitmap display; t1 = endereco do sprite
+	blt t0,a3,SkipOOBLinha
+
 	lbu t6,0(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
 	jal CheckColors
 	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente)
@@ -1998,13 +2006,13 @@ Linha: 		# t0 = endereco do bitmap display; t1 = endereco do sprite
 	lbu t6,3(t1) 			
 	jal CheckColors
 	sb t6,3(t0) 			
-
+SkipOOBLinha:
 	addi t0,t0,4 			# avanca o endereco do bitmap display em 4
 	addi t1,t1,4 			# avanca o endereco da imagem em 4
 	
 	addi t3,t3,4 			# avanca o contador de colunas em 4
 	blt t3,t4,Linha 		# enquanto a linha nao estiver completa, continua desenhando ela
-	
+
 	addi t0,t0,320 			# avanca para a proxima linha
 	sub t0,t0,t4 			# subtrai a largura do sprite
 		
@@ -2018,6 +2026,8 @@ PreLinhaRev:
 	addi t0,t0,-4
 
 LinhaReverse:
+	blt t0,a3,SkipOOBLinhaRev
+
 	lbu t6,3(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
 	jal CheckColors
 	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente)
@@ -2031,6 +2041,7 @@ LinhaReverse:
 	jal CheckColors
 	sb t6,3(t0) 
 
+SkipOOBLinhaRev:
 	addi t0,t0,-4 			# recua o endereco do bitmap display em 4
 	addi t1,t1,4 			# avanca o endereco da imagem em 4
 	
