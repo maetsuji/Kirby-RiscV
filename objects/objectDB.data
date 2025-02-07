@@ -12,79 +12,89 @@ Obj0ID: 	.word 0
 Obj0PosX:	.half 0
 Obj0PosY:	.half 0
 Obj0Dir:	.half 0
-Obj0MovePat:	.half 0
+Obj0Status:	.half 0
 Obj0LifeFrames:	.half 0
 Obj0Anim:	.half 0
+Obj0PosOG:	.half 0, 0
 
 Obj1ID: 	.word 0
 Obj1PosX:	.half 0
 Obj1PosY:	.half 0
 Obj1Dir:	.half 0
-Obj1MovePat:	.half 0
+Obj1Status:	.half 0
 Obj1LifeFrames:	.half 0
 Obj1Anim:	.half 0
+Obj1PosOG:	.half 0, 0
 
 Obj2ID: 	.word 0
 Obj2PosX:	.half 0
 Obj2PosY:	.half 0
 Obj2Dir:	.half 0
-Obj2MovePat:	.half 0
+Obj2Status:	.half 0
 Obj2LifeFrames:	.half 0
 Obj2Anim:	.half 0
+Obj2PosOG:	.half 0, 0
 
 Obj3ID: 	.word 0
 Obj3PosX:	.half 0
 Obj3PosY:	.half 0
 Obj3Dir:	.half 0
-Obj3MovePat:	.half 0
+Obj3Status:	.half 0
 Obj3LifeFrames:	.half 0
 Obj3Anim:	.half 0
+Obj3PosOG:	.half 0, 0
 
 Obj4ID: 	.word 0
 Obj4PosX:	.half 0
 Obj4PosY:	.half 0
 Obj4Dir:	.half 0
-Obj4MovePat:	.half 0
+Obj4Status:	.half 0
 Obj4LifeFrames:	.half 0
 Obj4Anim:	.half 0
+Obj4PosOG:	.half 0, 0
 
 Obj5ID: 	.word 0
 Obj5PosX:	.half 0
 Obj5PosY:	.half 0
 Obj5Dir:	.half 0
-Obj5MovePat:	.half 0
+Obj5Status:	.half 0
 Obj5LifeFrames:	.half 0
 Obj5Anim:	.half 0
+Obj5PosOG:	.half 0, 0
 
 Obj6ID: 	.word 0
 Obj6PosX:	.half 0
 Obj6PosY:	.half 0
 Obj6Dir:	.half 0
-Obj6MovePat:	.half 0
+Obj6Status:	.half 0
 Obj6LifeFrames:	.half 0
 Obj6Anim:	.half 0
+Obj6PosOG:	.half 0, 0
 
 Obj7ID: 	.word 0
 Obj7PosX:	.half 0
 Obj7PosY:	.half 0
 Obj7Dir:	.half 0
-Obj7MovePat:	.half 0
+Obj7Status:	.half 0
 Obj7LifeFrames:	.half 0
 Obj7Anim:	.half 0
+Obj7PosOG:	.half 0, 0
 
 Obj8ID: 	.word 0
 Obj8PosX:	.half 0
 Obj8PosY:	.half 0
 Obj8Dir:	.half 0
-Obj8MovePat:	.half 0
+Obj8Status:	.half 0
 Obj8LifeFrames:	.half 0
 Obj8Anim:	.half 0
+Obj8PosOG:	.half 0, 0
 
 Obj9ID: 	.word 0
 Obj9PosX:	.half 0
 Obj9PosY:	.half 0
 Obj9Dir:	.half 0
-Obj9MovePat:	.half 0
+Obj9Status:	.half 0
 Obj9LifeFrames:	.half 0
 Obj9Anim:	.half 0
+Obj9PosOG:	.half 0, 0
 

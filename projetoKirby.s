@@ -56,9 +56,8 @@ FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usa
 .eqv FPS 50
 
 ObjAtual:	.word 0
-ObjTempPos:	.word 0
 .eqv objQuant 10
-.eqv objSize 16
+.eqv objSize 20
 
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
@@ -95,7 +94,7 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 #########################################################################################################################################
 # as seguintes funcoes precisam ser chamadas antes do KeyPress, ja que ele atualiza o offset e a posicao do jogador e tornaria elas iguais aos valores antigos
 
-	jal PrintMapa		# imprime o mapa na inicializacao
+	#jal PrintMapa		# imprime o mapa na inicializacao
 	
 	la t0,kirbyIdle0
 	la t1,PlayerSprite
@@ -106,14 +105,15 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 	sw t0,0(t1)
 	
 	lw a0,PlayerSprite
-	la a1,PlayerPosX
+	lw a1,PlayerPosX
 	lw a2,PlayerColSprite
 	lw a3,PlayerLastDir
 	lw a4,PlayerPowState
 	jal Print		# imprime o jogador na inicializacao
 	
-	li a7,30
-	ecall
+	#li a7,30
+	#ecall
+	csrr a0,3073
 	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock
 
 Main:
@@ -138,7 +138,7 @@ Main:
 	#jal Limpar		# limpa posicao antiga do jogador  ## removido, pois o PrintMapa serve como um Limpar geral e esta precisando ser chamado todo frame
 	
 	lw a0,PlayerSprite
-	la a1,PlayerPosX
+	lw a1,PlayerPosX
 	lw a2,PlayerColSprite
 	lw a3,PlayerLastDir
 	lw a4,PlayerPowState
@@ -150,8 +150,9 @@ Main:
 
 #########################################################################################################################################
 Clock: 
-	li a7,30
-	ecall			# salva o novo valor do tempo global
+	#li a7,30
+	#ecall			# salva o novo valor do tempo global
+	csrr a0,3073
 	mv s0,a0
 	
 	lw t0,LastGlblTime
@@ -215,7 +216,61 @@ FimClock:
 	#ecall			
 
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
+#----------	
+CheckScreenBounds: # a0 = endereço do objeto; a1 = 0 para despawnar, 1 para ativar/desativar
+	addi sp,sp,-12
+	sw ra,0(sp)
+	sw s0,4(sp)
+	sw s1,8(sp)
+
+	lh s0,4(a0) # posX
+	lh s1,6(a0) # posY
 	
+	lhu t0,OffsetX
+	lhu t1,OffsetY
+	
+	sub s0,s0,t0
+	sub s1,s1,t1
+	
+	blt s0,zero,OutOfBounds #LeftOOB
+	li t0,304
+	bgt s0,t0,OutOfBounds #RightOOB
+	
+	blt s1,zero,OutOfBounds #TopOOB
+	li t0,224 ### TODO trocar ao adicionar o menu
+	bgt s1,t0,OutOfBounds #BottomOOB
+	
+	# spawn object:
+	li t0,6
+	lw t1,0(a0)
+	ble t1,t0,EndCheckbounds # objetos nao precisam ter o sstatus atualizado
+	
+	li t0,1
+	sh t0,10(a0) # atualiza status para 1
+	j EndCheckbounds
+	
+OutOfBounds:
+	bne a1,zero,DeactivateObj
+	
+	# despawn:
+	sw zero,0(a0)
+	j EndCheckbounds
+	
+DeactivateObj:
+	
+	sh zero,10(a0) # atualiza status para 0
+	lw t0,16(a0) # carrega posicao original do objeto
+	sw t0,4(a0) # atualiza posicao atual do objeto para a original
+	
+EndCheckbounds:
+	
+	lw ra,0(sp)
+	lw s0,4(sp)
+	lw s1,8(sp)
+	addi sp,sp,12
+
+	ret
+
 #----------
 BuildObject: # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
 
@@ -260,6 +315,8 @@ NewInstance:
 	beq a0,t0,BuildPullArea
 	li t0,6
 	beq a0,t0,BuildAir
+	li t0,7
+	###beq a0,t0,BuildWaddleDee
 	
 BuildDust:
 	# s0 tem o endereco inicial das variaveis do objeto
@@ -405,13 +462,18 @@ DrawNextObj:
 
 DrawObjAtual:
 
+	mv a0,s0
+	mv a1,zero
+	jal CheckScreenBounds
+
 	lw s3,0(s0) # ID
 	lhu s4,4(s0) # PosX
 	lhu s5,6(s0) # PosY
 	lhu s6,8(s0) # Dir
-	lhu s7,10(s0) # MovePat
+	lhu s7,10(s0) # Status
 	lhu s8,12(s0) # LifeFrames
 	lhu s9,14(s0) # Anim
+	### lw s10,16(s0)
 	
 	li t0,1
 	beq s3,t0,DrawDust
@@ -425,6 +487,8 @@ DrawObjAtual:
 	beq s3,t0,DrawPullArea
 	li t0,6
 	beq s3,t0,DrawAir
+	li t0,7
+	###beq s3,t0,DrawWaddleDee
 
 	j DrawNextObj
 
@@ -436,11 +500,9 @@ DrawDust:
 DustBreakRtoL:
 	add s4,s4,t0 # define em qual lado do kirby vai aparecer
 	
-	addi t1,s5,4
+	addi t1,s5,4 
 	slli t0,t1,16
-	add t0,t0,s4
-	sw t0,ObjTempPos,t1
-	la a1,ObjTempPos ### TODO revisar
+	add a1,t0,s4
 	
 	la a2,emptyCol
 	mv a3,s6
@@ -515,9 +577,7 @@ DrawTinyDustRight:
 	add s5,s5,t2
 
 	slli t0,s5,16
-	add t0,t0,s4
-	sw t0,ObjTempPos,t1
-	la a1,ObjTempPos ### TODO revisar
+	add a1,t0,s4
 	
 	la a2,emptyCol
 	mv a3,s6
@@ -559,9 +619,7 @@ DrawAirRight:
 	addi s5,s5,-2
 
 	slli t0,s5,16
-	add t0,t0,s4
-	sw t0,ObjTempPos,t1
-	la a1,ObjTempPos ### TODO revisar
+	add a1,t0,s4
 	
 	la a0,air
 	mv a2,zero
@@ -593,9 +651,7 @@ DoneDrawFireVert:
 	sh s5,6(s0) # atualiza PosY
 
 	slli t0,s5,16
-	add t0,t0,t1
-	sw t0,ObjTempPos,t1
-	la a1,ObjTempPos ### TODO revisar
+	add a1,t0,t1
 	
 	la a2,emptyCol
 	mv a3,s6
@@ -615,9 +671,7 @@ DoneDrawFireVert:
 	
 DrawIce:
 	slli t0,s5,16
-	add t0,t0,s4
-	sw t0,ObjTempPos,t1
-	la a1,ObjTempPos ### TODO revisar
+	add a1,t0,s4
 	
 	la a2,emptyCol
 	mv a3,s6
@@ -640,9 +694,7 @@ DrawPullAreaLeft:
 
 	addi s5,s5,-6 # sprite da area de puxar deve ficar 46pixels para cima
 	slli t0,s5,16
-	add t0,t0,s4
-	sw t0,ObjTempPos,t1
-	la a1,ObjTempPos ### TODO revisar
+	add a1,t0,s4
 	
 	la a2,emptyCol ###
 	mv a3,s6
@@ -750,7 +802,7 @@ FimKeyPress:
 #----------
 EndGame:
 	li a7,10
-	ecall				# metodo temporario de finalizacao do jogo
+	#ecall				# metodo temporario de finalizacao do jogo
 
 #----------
 SetPower0:
@@ -1936,11 +1988,11 @@ keepSprAnim:
 	ret
 	
 #----------
-Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do sprite;
+Print: 		# a0 = sprite que vai ser impresso; a1 = posicao do sprite 0xYYYYXXXX;
 		# a2 = sprite de colisao; a3 = 0 para esquerda ou 1 para direita; a4 = 0, 1 ou 2 para o caso especifico do jogador estar com poderes
 	# s0, s1, s2, s3, s4, s5, s6 
 	
-	addi sp,sp,-32
+	addi sp,sp,-40
 	sw ra,0(sp)
 	sw s0,4(sp)
 	sw s1,8(sp)
@@ -1949,13 +2001,14 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do spri
 	sw s4,20(sp)
 	sw s5,24(sp)
 	sw s6,28(sp)
-	
-	mv t0,a1
+	sw s7,32(sp)
+	sw s8,36(sp)
 	
 	mv s4,a3
 	
-	lhu s0,0(t0)
-	lhu s1,2(t0)			# salva posicao inicial do sprite	
+	li t0,0xffff
+	and s0,a1,t0
+	srli s1,a1,16 			# salva posicao inicial do sprite	
 	
 	lh s2,8(a0)			# salva a distancia X para iniciar a desenhar o sprite
 	lh s3,10(a0)			# salva a distancia Y para iniciar a desenhar o sprite
@@ -1967,19 +2020,20 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do spri
 	sub t4,s1,t0			# subtrai o Y do sprite pelo offset Y
 	sub t4,t4,s3			# subtrai a distancia Y para iniciar o sprite
 	
-	blt t3,zero,FimPrint		# se x for menor que 0 impede que algo seja impresso no outro lado do bitmap
+	#blt s0,zero,FimPrint		# se x for menor que 0 impede que algo seja impresso no outro lado do bitmap
 	
 	li t1,320
 	li t2,240
-	rem t3,t3,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial
-	rem t4,t4,t2			# tecnicamente desnecessario por causa do offset, mas mantido por garantia e para testes que mudam a posicao manualmente
+	#rem t3,t3,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial
+	#rem t4,t4,t2			# tecnicamente desnecessario por causa do offset, mas mantido por garantia e para testes que mudam a posicao manualmente
 	
 	lw a3,BitmapFrame
 	
-	add t0,a3,t3 			# adiciona x ao endereco do bitmap
-	
 	mul t1,t1,t4
-	add t0,t0,t1 			# adiciona y ao endereco do bitmap
+	add s7,a3,t1 			# adiciona y ao endereco do bitmap e armazena esse valor em s7 para evitar o underflow de sprites no bitmap
+	addi s8,s7,319			# s8, valor maximo da linha, para evitar o overflow de sprites
+	
+	add t0,s7,t3 			# adiciona x ao endereco do bitmap
 	
 	addi t1,a0,spriteHeader		# endereco do sprite mais spriteHeader
 	
@@ -1993,6 +2047,8 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = endereco com a posicao do spri
 
 Linha: 		# t0 = endereco do bitmap display; t1 = endereco do sprite
 	blt t0,a3,SkipOOBLinha
+	blt t0,s7,SkipOOBLinha
+	bgt t0,s8,SkipOOBLinha
 
 	lbu t6,0(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
 	jal CheckColors
@@ -2013,6 +2069,9 @@ SkipOOBLinha:
 	addi t3,t3,4 			# avanca o contador de colunas em 4
 	blt t3,t4,Linha 		# enquanto a linha nao estiver completa, continua desenhando ela
 
+	addi s7,s7,320
+	addi s8,s8,320
+
 	addi t0,t0,320 			# avanca para a proxima linha
 	sub t0,t0,t4 			# subtrai a largura do sprite
 		
@@ -2027,6 +2086,8 @@ PreLinhaRev:
 
 LinhaReverse:
 	blt t0,a3,SkipOOBLinhaRev
+	blt t0,s7,SkipOOBLinhaRev
+	bgt t0,s8,SkipOOBLinhaRev
 
 	lbu t6,3(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
 	jal CheckColors
@@ -2047,6 +2108,9 @@ SkipOOBLinhaRev:
 	
 	addi t3,t3,4 			# avanca o contador de colunas em 4
 	blt t3,t4,LinhaReverse 		# enquanto a linha nao estiver completa, continua desenhando ela
+	
+	addi s7,s7,320
+	addi s8,s8,320
 	
 	addi t0,t0,320 			# avanca para a proxima linha
 	add t0,t0,t4
@@ -2101,7 +2165,9 @@ FimPrint:
 	lw s4,20(sp)
 	lw s5,24(sp)
 	lw s6,28(sp)
-	addi sp,sp,32
+	lw s7,32(sp)
+	lw s8,36(sp)
+	addi sp,sp,40
 
 	ret 
 
