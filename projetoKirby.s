@@ -59,6 +59,8 @@ ObjAtual:	.word 0
 .eqv objQuant 10
 .eqv objSize 20
 
+tempPos:	.word 0
+
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
 .include "sprites/Ataque1.data"
@@ -94,7 +96,7 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 #########################################################################################################################################
 # as seguintes funcoes precisam ser chamadas antes do KeyPress, ja que ele atualiza o offset e a posicao do jogador e tornaria elas iguais aos valores antigos
 
-	#jal PrintMapa		# imprime o mapa na inicializacao
+	jal PrintMapa		# imprime o mapa na inicializacao
 	
 	la t0,kirbyIdle0
 	la t1,PlayerSprite
@@ -115,7 +117,7 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 	#ecall
 	csrr a0,3073
 	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock
-
+	#ebreak
 Main:
 	jal Clock
 	
@@ -133,10 +135,6 @@ Main:
 
 	jal PrintMapa		# imprime o mapa usando o offset
 
-	#la a0,OldPlayerPos
-	#la a1,PlayerPosX
-	#jal Limpar		# limpa posicao antiga do jogador  ## removido, pois o PrintMapa serve como um Limpar geral e esta precisando ser chamado todo frame
-	
 	lw a0,PlayerSprite
 	lw a1,PlayerPosX
 	lw a2,PlayerColSprite
@@ -217,7 +215,7 @@ FimClock:
 
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
 #----------	
-CheckScreenBounds: # a0 = endereço do objeto; a1 = 0 para despawnar, 1 para ativar/desativar
+CheckScreenBounds: # a0 = endereco do objeto; a1 = 0 para despawnar, 1 para ativar/desativar
 	addi sp,sp,-12
 	sw ra,0(sp)
 	sw s0,4(sp)
@@ -462,13 +460,15 @@ DrawNextObj:
 
 DrawObjAtual:
 
+	lw s3,0(s0) # ID
+
 	mv a0,s0
 	mv a1,zero
 	jal CheckScreenBounds
+SkipCheckBounds:
 
-	lw s3,0(s0) # ID
-	lhu s4,4(s0) # PosX
-	lhu s5,6(s0) # PosY
+	lh s4,4(s0) # PosX
+	lh s5,6(s0) # PosY
 	lhu s6,8(s0) # Dir
 	lhu s7,10(s0) # Status
 	lhu s8,12(s0) # LifeFrames
@@ -616,7 +616,7 @@ DrawAirRight:
 	sh s5,6(s0) # atualiza PosY
 	
 	add s4,s4,t1
-	addi s5,s5,-2
+	addi s5,s5,-4
 
 	slli t0,s5,16
 	add a1,t0,s4
@@ -692,7 +692,7 @@ DrawPullArea:
 	addi s4,s4,64 # corrige o offset inicial da area de puxar quando esta para a direitapara a direita
 DrawPullAreaLeft:
 
-	addi s5,s5,-6 # sprite da area de puxar deve ficar 46pixels para cima
+	addi s5,s5,-6 # sprite da area de puxar deve ficar 6 pixels para cima
 	slli t0,s5,16
 	add a1,t0,s4
 	
@@ -862,6 +862,9 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	li t0,10
 	beq s6,t0,EndAttackAir
 	
+	li t0,11
+	beq s6,t0,EndAttackStar
+	
 	li t0,'e'
 	beq s0,t0,AttackCheck
 	
@@ -934,6 +937,13 @@ AttackAir:
 
 EndAttackAir:
 	li s7,10
+	bgt s8,zero,DoneAttack
+	
+	li s7,0
+	j DoneAttack
+
+EndAttackStar:
+	li s7,11
 	bgt s8,zero,DoneAttack
 	
 	li s7,0
@@ -1328,14 +1338,14 @@ SkipSubDelay:
 	li t1,1
 	beq t0,t1,DefineAnimHorz
 	
-DefTransition:
+DefTransition: # se alguma transicao esta acontecendo
 	
 	li t0,1
 	beq s9,t0,DefFireAnim
 	li t0,2
 	beq s9,t0,DefIceAnim
 	li t0,3
-	bge s9,t0,DefSpitAnim
+	bge s9,t0,DefStarAnim
 
 	li t0,1
 	li s1,11
@@ -1371,9 +1381,11 @@ DefIceAnim:
 	
 	j EndDefFireIce
 	
-DefSpitAnim:
-	li s1,7 ### TODO
+DefStarAnim:
+	li t0,11
+	li s1,18 ### TODO
 	j DefinedAnim
+	#beq s8,t0,DefinedAnim
 	
 EndDefFireIce:
 	li t0,9
@@ -1530,6 +1542,45 @@ ContinueAnim:
 	li t0,17
 	la s4,kirbyIceAtt0
 	beq s3,t0,GotPlayerSprite
+	li t0,18
+	beq s3,t0,PlayerStarAttack
+		
+PlayerStarAttack:
+	lw t0,PlayerObjDelay
+	bgt t0,zero,DoneStarObj
+	
+	li t0,30
+	sw t0,PlayerObjDelay,t1
+
+	li a0,6 # id do objeto (estrela) ###
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	mv a4,zero
+	jal BuildObject
+DoneStarObj:
+
+	jal CheckNextSprAnim
+	andi s1,s1,3
+	
+	la s4,kirbyEat3Gnd
+	li s6,15
+	la s7,playerCol
+	beq s1,zero,GotPlayerSprite
+	li t0,1
+	la s4,kirbyEat2
+	li s6,5
+	la s7,playerEatCol
+	beq s1,t0,GotPlayerSprite
+	li t0,2
+	la s4,kirbyEat1
+	li s6,5
+	la s7,playerCol
+	beq s1,t0,GotPlayerSprite
+	li t0,3
+	la s4,kirbyEat0
+	li s6,5
+	beq s1,t0,GotPlayerSprite
 		
 PlayerIdle:
 	jal CheckNextSprAnim
@@ -2006,9 +2057,10 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = posicao do sprite 0xYYYYXXXX;
 	
 	mv s4,a3
 	
-	li t0,0xffff
-	and s0,a1,t0
-	srli s1,a1,16 			# salva posicao inicial do sprite	
+	la t0,tempPos
+	sw a1,0(t0)
+	lh s0,0(t0)
+	lh s1,2(t0)			# salva posicao inicial do sprite
 	
 	lh s2,8(a0)			# salva a distancia X para iniciar a desenhar o sprite
 	lh s3,10(a0)			# salva a distancia Y para iniciar a desenhar o sprite
@@ -2019,9 +2071,7 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = posicao do sprite 0xYYYYXXXX;
 	lhu t0,OffsetY			
 	sub t4,s1,t0			# subtrai o Y do sprite pelo offset Y
 	sub t4,t4,s3			# subtrai a distancia Y para iniciar o sprite
-	
-	#blt s0,zero,FimPrint		# se x for menor que 0 impede que algo seja impresso no outro lado do bitmap
-	
+		
 	li t1,320
 	li t2,240
 	#rem t3,t3,t1			# corrige a posicao no bitmap quando ela passa do 320x240 inicial
