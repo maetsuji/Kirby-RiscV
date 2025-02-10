@@ -457,7 +457,7 @@ BuildWaddleDee:
 	
 	sw a2,4(s0)
 	
-	sw a2,16(s0) # posOG é definida
+	sw a2,16(s0) # posOG ï¿½ definida
 	
 	j BuildNextObj
 	
@@ -1143,8 +1143,8 @@ BackEatingDown:
 	
 EndEatingDown:
 	bgt s8,zero,BackEatingDown
-	
-	li s7,0 # de qualquer forma apos agachar o AnimState sera 0
+		
+	li s7,0 
 	
 	sw zero,PlayerLock,t0 # destrava o jogador
 	
@@ -1153,6 +1153,16 @@ EndEatingDown:
 	
 	addi t0,s10,-3 # basta subtrair 3 do PowState de item na boca para definir o novo PowState 
 	sw t0,PlayerPowState,t1
+	
+	bgt t0,zero,DoneVerticalMv
+	li s7,6 # para casos de ganhar novo poder 
+	
+	li t1,1
+	beq t0,t1,DoneVerticalMv # se estiver com a habilidade de fogo nao precisa da animacao de EndAttack
+	
+	li s8,10
+	sh s8,PlayerAnimTransit,t1
+	
 	j DoneVerticalMv
 	
 MoveDown:
@@ -1161,12 +1171,12 @@ MoveDown:
 	li t0,1
 	sw t0,PlayerLock,t2 # trava a movimentacao do jogador enquanto estiver comendo, liberado ao final da animacao no PlayerAnimation
 	
-	li t1,25
+	li t1,25 # tempo para segurar a tecla de abaixar
 	li t0,3
 	blt s10,t0,CrouchHoldDelay
 	li t1,40	# tempo da animacao normal de comer
 	beq s10,t0,EatingHoldDelay
-	li t1,60 	# tempo da animacao de comer e ganhar poder
+	li t1,80 	# tempo da animacao de comer e ganhar poder
 EatingHoldDelay:
 	bgt s8,zero,DoneVerticalMv # se ja estiver em uma animacao de comer nao atualiza o delay
 	
@@ -1513,7 +1523,7 @@ DefDownAnims:
 	li s1,19
 	blt s9,t0,DefinedAnim
 	
-	li s1,19 ### 20
+	li s1,20
 	j DefinedAnim
 	
 DefFireAnim:
@@ -1703,8 +1713,31 @@ ContinueAnim:
 	li t0,19
 	la s4,kirbyDown
 	beq s3,t0,GotPlayerSprite
-	###li t0,20
-	###beq s3,t0,PlayerDownEating
+	li t0,20
+	beq s3,t0,PlayerDownEating
+		
+PlayerDownEating:
+	jal CheckNextSprAnim
+	andi s1,s1,7
+
+	la s4,kirbyBigDiag # tempo de comer normal = 40
+	li s6,12
+	beq s1,zero,GotPlayerSprite
+	li t0,1
+	la s4,kirbyMunch
+	li s6,14
+	beq s1,t0,GotPlayerSprite
+	li t0,2
+	la s4,kirbyDown
+	li s6,10
+	beq s1,t0,GotPlayerSprite
+	li t0,3
+	la s4,kirbyIdle0
+	li s6,4
+	beq s1,t0,GotPlayerSprite
+	
+	# para os casos de ganhar os poderes de fogo ou gelo, o s1 pode chegar a 7 e terao uma animacao extra
+	
 		
 PlayerStarAttack:
 	lw t0,PlayerObjDelay
