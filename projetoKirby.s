@@ -1,5 +1,8 @@
 .data
 
+.include "objects/objectDB.data"
+.include "collision/collisionRender.data"
+
 BitmapFrame:	.word 0xff000000
 
 MapaPos:	.half 0, 0
@@ -8,8 +11,9 @@ OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal qu
 OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
 OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
 
-PlayerPosX: 	.half 32	# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
-PlayerPosY: 	.half 16	# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
+PlayerHP:	.word 0		# endereco dessa variavel serve como ID do jogador, usada para comparacao no UpdateCollision
+PlayerPosX: 	.half 48	# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
+PlayerPosY: 	.half 64		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
 OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual)  ## nao mais utilizado atualmente
 TempPlayerPos:	.word 0
 PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
@@ -37,6 +41,7 @@ PlayerObjDelay: .word 0
 .eqv playerMaxJumpSp -4
 .eqv playerAccX 100
 .eqv playerDeaccX 10
+.eqv playerSlowDeaccX 5
 .eqv playerFlyPow -450
 .eqv playerJumpPow -600
 .eqv playerFlyIndex 12
@@ -59,6 +64,8 @@ ObjAtual:	.word 0
 .eqv objQuant 10
 .eqv objSize 20
 
+.eqv enemyStartIndex 8
+
 tempPos:	.word 0
 
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
@@ -76,11 +83,12 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "kirby/kirbyMain2.data"
 .include "kirby/kirbyPowers.data"
 
-.include "objects/objectDB.data"
+
 .include "objects/objectSprites.data"
+.include "objects/enemySprites.data"
 
 .include "collision/collisionObjects.data"
-.include "collision/collisionRender.data"
+
 .include "collision/collisionTiles.data"
 
 
@@ -102,13 +110,8 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 	la t1,PlayerSprite
 	sw t0,0(t1)
 	
-	la t0,playerCol
-	la t1,PlayerColSprite
-	sw t0,0(t1)
-	
 	lw a0,PlayerSprite
 	lw a1,PlayerPosX
-	lw a2,PlayerColSprite
 	lw a3,PlayerLastDir
 	lw a4,PlayerPowState
 	jal Print		# imprime o jogador na inicializacao
@@ -118,6 +121,8 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 	csrr a0,3073
 	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock
 	#ebreak
+	
+	jal StartEnemies
 Main:
 	jal Clock
 	
@@ -129,15 +134,12 @@ Main:
 	
 	jal PlayerAnimation
 	
-	#jal EnemyCheck
-	
 # toda funcao que muda posicao de personagens/objetos deve ser chamada antes de imprimi-los
 
 	jal PrintMapa		# imprime o mapa usando o offset
 
 	lw a0,PlayerSprite
 	lw a1,PlayerPosX
-	lw a2,PlayerColSprite
 	lw a3,PlayerLastDir
 	lw a4,PlayerPowState
 	jal Print		# imprime o jogador em sua nova posicao
@@ -156,13 +158,13 @@ Clock:
 	lw t0,LastGlblTime
 	sub t0,a0,t0		# subtrai o novo tempo global pelo ultimo valor salvo, para definir quantos milissegundos passaram desde o ultimo frame
 	
-	#mv a0,t0
-	#lhu a0,PlayerAnimState
-	#li a7,1
+	mv a0,t0
+	lhu a0,PlayerAnimState
+	li a7,1
 	#ecall
 	
-	#la a0,endl
-	#li a7,4
+	la a0,endl
+	li a7,4
 	#ecall			# imprime a diferenca de milissegundos (apenas por debug)
 	
 	li t1,20		# a cada 20 ms o frame avanca em 1, o que equivale a 50 fps
@@ -214,8 +216,26 @@ FimClock:
 	#ecall			
 
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
+
+#----------
+StartEnemies: 
+	addi sp,sp,-4
+	sw ra,0(sp)
+
+	li a0,waddleID # waddle dee
+	li a1,1
+	li a2,0x00400030
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
+
 #----------	
-CheckScreenBounds: # a0 = endereco do objeto; a1 = 0 para despawnar, 1 para ativar/desativar
+CheckScreenBounds: # a0 = endereco do objeto; a1 = 1 para despawnar, 0 para ativar/desativar
 	addi sp,sp,-12
 	sw ra,0(sp)
 	sw s0,4(sp)
@@ -241,14 +261,14 @@ CheckScreenBounds: # a0 = endereco do objeto; a1 = 0 para despawnar, 1 para ativ
 	# spawn object:
 	li t0,6
 	lw t1,0(a0)
-	ble t1,t0,EndCheckbounds # objetos nao precisam ter o sstatus atualizado
+	ble t1,t0,EndCheckbounds # objetos nao precisam ter o status atualizado
 	
 	li t0,1
 	sh t0,10(a0) # atualiza status para 1
 	j EndCheckbounds
 	
 OutOfBounds:
-	bne a1,zero,DeactivateObj
+	beq a1,zero,DeactivateObj
 	
 	# despawn:
 	sw zero,0(a0)
@@ -257,6 +277,7 @@ OutOfBounds:
 DeactivateObj:
 	
 	sh zero,10(a0) # atualiza status para 0
+	sh zero,12(a0) # reinicia LifeFrames para 0
 	lw t0,16(a0) # carrega posicao original do objeto
 	sw t0,4(a0) # atualiza posicao atual do objeto para a original
 	
@@ -298,25 +319,6 @@ BuildNextObj:
 NewInstance:
 	addi a1,a1,-1
 	
-	li a7,1
-	#ecall
-	
-	li t0,1
-	beq a0,t0,BuildDust
-	li t0,2
-	beq a0,t0,BuildTinyDust
-	li t0,3
-	beq a0,t0,BuildFire
-	li t0,4
-	beq a0,t0,BuildIce
-	li t0,5
-	beq a0,t0,BuildPullArea
-	li t0,6
-	beq a0,t0,BuildAir
-	li t0,7
-	###beq a0,t0,BuildWaddleDee
-	
-BuildDust:
 	# s0 tem o endereco inicial das variaveis do objeto
 	sw a0,0(s0) # id
 	
@@ -324,99 +326,124 @@ BuildDust:
 	
 	sh a3,8(s0) # dir
 	
-	sh zero,10(s0) # movePat
+	sh a4,10(s0) # status
 	
-	li t0,4
-	sh t0,12(s0) # lifeFrames
+	sh zero,12(s0) # lifeFrames
 	
 	sh zero,14(s0) # anim
+	
+	sw zero,16(s0) # posOG
+	
+	li t0,dustID
+	beq a0,t0,BuildDust
+	li t0,tinyDustID
+	beq a0,t0,BuildTinyDust
+	li t0,fireID
+	beq a0,t0,BuildFire
+	li t0,iceID
+	beq a0,t0,BuildIce
+	li t0,airID
+	beq a0,t0,BuildAir
+	li t0,starID
+	beq a0,t0,BuildStar
+	li t0,waddleID
+	beq a0,t0,BuildWaddleDee
+	
+BuildDust:
+	# s0 tem o endereco inicial das variaveis do objeto
+	li t0,4
+	sh t0,12(s0) # lifeFrames
 	
 	j BuildNextObj
 	
 BuildTinyDust:
-	# s0 tem o endereco inicial das variaveis do objeto
-	sw a0,0(s0) # id
-	
-	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
-	
-	sh a3,8(s0) # dir
-	
-	sh a4,10(s0) # movePat # a4 = 0, 1, 2, 3 -> esq cima, dir baixo, dir cima, esq baixo 
+	# status, a4 = 0, 1, 2, 3, 4, 5
 	
 	li t0,5
 	sh t0,12(s0) # lifeFrames
-	
-	sh zero,14(s0) # anim
 	
 	j BuildNextObj
 	
 BuildFire:
-	# s0 tem o endereco inicial das variaveis do objeto
-	sw a0,0(s0) # id
-	
-	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
-	
-	sh a3,8(s0) # dir
-	
-	sh a4,10(s0) # movePat, para o fogo: 0 = para cima, 1 = para baixo
+	# status, para o fogo: 0 = para cima, 1 = para baixo
 	
 	li t0,10
 	sh t0,12(s0) # lifeFrames
 	
-	sh zero,14(s0) # anim
-	
 	j BuildNextObj
 
 BuildIce:
-	# s0 tem o endereco inicial das variaveis do objeto
-	sw a0,0(s0) # id
+	# status, para o gelo: ###
 	
-	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
+	# 0 = upper right:
+	li t0,8  
+	li t1,-20
+	beq a4,zero,DoneIcePos
+	# 1 = middle right:
+	li t0,20
+	li t1,0
+	li t2,1
+	beq a4,t2,DoneIcePos
+	# 2 = down right:
+	li t0,8  
+	li t1,20
+	li t2,2
+	beq a4,t2,DoneIcePos
+	# 3 = down left:
+	li t0,-8  
+	li t1,20
+	li t2,3
+	beq a4,t2,DoneIcePos
+	# 4 = middle left:
+	li t0,-20
+	li t1,0
+	li t2,4
+	beq a4,t2,DoneIcePos
+	# 5 = upper left:
+	li t0,-8  
+	li t1,-20
+DoneIcePos:
+
+	slli t2,a2,16
+	srli t2,t2,16 # isola posX
+	srli t3,a2,16 # isola posY
 	
-	sh a3,8(s0) # dir
+	add t2,t2,t0
+	add t3,t3,t1
+	slli t3,t3,16
+	add t3,t3,t2
+	sw t3,4(s0) # posX e posY
+
+	add t0,s4,t0
+	add t1,s5,t1
 	
-	sh zero,10(s0) # movePat
-	
-	li t0,8
+	li t0,10
 	sh t0,12(s0) # lifeFrames
-	
-	sh zero,14(s0) # anim
-	
-	j BuildNextObj
-	
-BuildPullArea:
-	# s0 tem o endereco inicial das variaveis do objeto
-	sw a0,0(s0) # id
-	
-	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
-	
-	sh a3,8(s0) # dir
-	
-	sh zero,10(s0) # movePat
-	
-	li t0,5
-	sh t0,12(s0) # lifeFrames
-	
-	sh zero,14(s0) # anim
 	
 	j BuildNextObj
 	
 BuildAir:
-	# s0 tem o endereco inicial das variaveis do objeto
-	sw a0,0(s0) # id
-	
-	sw a2,4(s0) # posX e posY, pois e possivel armazenar diretamente a word com a posicao de referencia
-	
-	sh a3,8(s0) # dir
-	
-	sh zero,10(s0) # movePat
-	
 	li t0,24
 	sh t0,12(s0) # lifeFrames
 	
-	sh zero,14(s0) # anim
+	j BuildNextObj
+	
+BuildStar:
+	li t0,200
+	sh t0,12(s0) # lifeFrames
 	
 	j BuildNextObj
+	
+BuildWaddleDee:
+	li t0,1
+	sh t0,12(s0)
+	
+	sw a2,4(s0)
+	
+	sw a2,16(s0) # posOG é definida
+	
+	j BuildNextObj
+	
 	
 FimBuildObject:
 
@@ -442,11 +469,11 @@ IterateDrawObjs:
 	
 	mv a0,s2
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall
+	ecall
 	
 	bne s2,zero,DrawObjAtual
 	
@@ -463,7 +490,7 @@ DrawObjAtual:
 	lw s3,0(s0) # ID
 
 	mv a0,s0
-	mv a1,zero
+	slti a1,s3,enemyStartIndex # se o id for de um objeto envia 1 para despawnar, se for um inimigo envia 0 para ativar/desativar
 	jal CheckScreenBounds
 SkipCheckBounds:
 
@@ -475,20 +502,20 @@ SkipCheckBounds:
 	lhu s9,14(s0) # Anim
 	### lw s10,16(s0)
 	
-	li t0,1
+	li t0,dustID
 	beq s3,t0,DrawDust
-	li t0,2
+	li t0,tinyDustID
 	beq s3,t0,DrawTinyDust
-	li t0,3
+	li t0,fireID
 	beq s3,t0,DrawFire
-	li t0,4
+	li t0,iceID
 	beq s3,t0,DrawIce
-	li t0,5
-	beq s3,t0,DrawPullArea
-	li t0,6
+	li t0,airID
 	beq s3,t0,DrawAir
-	li t0,7
-	###beq s3,t0,DrawWaddleDee
+	li t0,starID
+	beq s3,t0,DrawStar
+	li t0,waddleID
+	beq s3,t0,DrawWaddleDee
 
 	j DrawNextObj
 
@@ -504,7 +531,6 @@ DustBreakRtoL:
 	slli t0,t1,16
 	add a1,t0,s4
 	
-	la a2,emptyCol
 	mv a3,s6
 	mv a4,zero
 	
@@ -579,7 +605,6 @@ DrawTinyDustRight:
 	slli t0,s5,16
 	add a1,t0,s4
 	
-	la a2,emptyCol
 	mv a3,s6
 	mv a4,zero
 	
@@ -653,7 +678,6 @@ DoneDrawFireVert:
 	slli t0,s5,16
 	add a1,t0,t1
 	
-	la a2,emptyCol
 	mv a3,s6
 	mv a4,zero
 	
@@ -670,51 +694,92 @@ DoneDrawFireVert:
 	j DrawObjReady
 	
 DrawIce:
-	slli t0,s5,16
-	add a1,t0,s4
+
+	slli a1,s5,16
+	add a1,a1,s4
 	
-	la a2,emptyCol
 	mv a3,s6
 	mv a4,zero
 	
-	la a0,ice # frames com vida 8 a 5
-	li t0,4 
+	la a0,ice1 # frames com vida 10 a 7
+	li t0,6 
 	bgt s8,t0,DrawObjReady
-	la a0,dust0 # frames com vida 4 e 3
-	li t0,2 
+	la a0,dust1 # frames com vida 6 a 3
+	li t0,2
 	bgt s8,t0,DrawObjReady
-	la a0,dust1 # frames com vida 2 e 1
+	la a0,ice0 # frames com vida 2 e 1
 	j DrawObjReady
 	
-DrawPullArea:
-	addi s4,s4,-48
-	beq s6,zero,DrawPullAreaLeft
-	addi s4,s4,64 # corrige o offset inicial da area de puxar quando esta para a direitapara a direita
-DrawPullAreaLeft:
+DrawStar:
+	li t1,12 # offset inicial da estrela nao e salvo
 
-	addi s5,s5,-6 # sprite da area de puxar deve ficar 6 pixels para cima
+	li t2,4 
+	
+	bne s6,zero,DrawStarRight
+	sub t1,zero,t1
+	sub t2,zero,t2
+DrawStarRight:
+
+	add s4,s4,t2
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	
+	add s4,s4,t1
+	addi s5,s5,-4
+
 	slli t0,s5,16
 	add a1,t0,s4
 	
-	la a2,emptyCol ###
+	mv a2,zero
 	mv a3,s6
 	mv a4,zero
 	
-	la a0,playerPullAreaCol # sempre o mesmo sprite
+	andi t1,s8,15
+	
+	la a0,star0 # frames com vida 0 a 3
+	li t0,4
+	blt t1,t0,DrawObjReady
+	la a0,star3 # frames com vida 4 a 7
+	li t0,8
+	blt t1,t0,DrawObjReady
+	la a0,star2 # frames com vida 8 a 11
+	li t0,12
+	blt t1,t0,DrawObjReady
+	la a0,star1 # frames de 12 a 15
+	j DrawObjReady
+	
+DrawWaddleDee:
+
+	beq s7,zero,DrawNextObj # se estiver com status 0 = desativado (fora da tela)
+	
+	slli t0,s5,16
+	add a1,t0,s4
+	
+	la a0,waddleDee0
+	mv a2,zero
+	mv a3,s6
+	mv a4,zero
 	j DrawObjReady
 	
 DrawObjReady:
 	jal Print
 	
+	li t0,enemyStartIndex
+	li t1,1
+	bge s3,t0,SetEnemyLifeFrames # se o id for de um objeto o lifeFrames diminui, se for de um inimigo ele aumenta 
+	sub t1,zero,t1
+SetEnemyLifeFrames:
+	add s8,s8,t1
+	
 	mv a0,s8 ###
 	li a7,1
-	#ecall
+	ecall
 
 	la a0,endl
 	li a7,4
-	#ecall
+	ecall
 	
-	addi s8,s8,-1
 	sh s8,12(s0)
 	bne s8,zero,DrawNextObj
 	sw zero,0(s0)	# define ID do objeto como 0 se tempo de vida dele acabar
@@ -727,7 +792,7 @@ FimDrawObjects:
 	
 	la a0,endl
 	li a7,4
-	#ecall
+	ecall
 
 	ret
 
@@ -842,7 +907,7 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	lw s0,LastKey			# s0, valor da ultima tecla apertada
 	lhu s1,PlayerPosX		# s1, posicao X do jogador no mapa
 	lhu s2,PlayerPosY		# s2, posicao Y do jogador no mapa
-	lhu s6,PlayerAnimState		# s6, valor de estado do jogador: 0 = vazio, 1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = cheio sem poder, 5 = inimigo 1 na boca, 6 = inimigo 2 na boca, 7 = cheio com poder 1, 8 = cheio com poder 2
+	lhu s6,PlayerAnimState		# s6, valor de estado do jogador
 	mv s7,s6
 	lhu s8,PlayerAnimTransit
 	lw s9,PlayerLock
@@ -874,6 +939,9 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	j HorizontalMove
 	
 AttackCheck:
+	li t0,playerMouthIndex # como o item na boca por si so nao muda o AnimState, comparacao precisa ser feita com o PowState
+	bge s10,t0,AttackStar
+
 	li t0,0
 	beq s6,t0,StartAttackEat
 
@@ -882,6 +950,7 @@ AttackCheck:
 	
 	li t0,playerFlyIndex
 	bge s6,t0,AttackAir
+	
 	j DoneAttack
 	
 StartAttackEat:
@@ -942,11 +1011,21 @@ EndAttackAir:
 	li s7,0
 	j DoneAttack
 
+AttackStar:
+	li t0,30
+	sh t0,PlayerAnimTransit,t1
+
+	li s7,11
+	j DoneAttack
+
 EndAttackStar:
 	li s7,11
 	bgt s8,zero,DoneAttack
 	
 	li s7,0
+	
+	li t0,0
+	sw zero,PlayerPowState,t1
 	j DoneAttack
 
 DoneAttack:
@@ -954,7 +1033,12 @@ DoneAttack:
 
 HorizontalMove:
 	lh s4,PlayerSpeedX		# s4, velocidade X do jogador em seu valor completo
+	
+	lhu t0,PlayerGndState
+	li t1,playerSlowDeaccX
+	beq t0,zero,SetSlowDeaccX
 	li t1,playerDeaccX		# t1, velocidade de desaceleracao do jogador no eixo X 
+SetSlowDeaccX:
 	li t2,playerAccX		# t2, velocidade de aceleracao do jogador no eixo X
 	li t3,playerMaxSpX		# t3, velocidade maxima do jogador no eixo X
 	
@@ -1020,7 +1104,7 @@ NotFlying:
 	
 	li t0,9
 	beq s6,t0,CheckStartFly
-BackCheckStFly:
+ReturnCheckStFly:
 	
 	li t0,'w'
 	beq s0,t0,MoveFly
@@ -1037,10 +1121,10 @@ LockedJump:
 	
 CheckStartFly:
 	li s7,playerFlyIndex 
-	beq s8,zero,BackCheckStFly  # se a animacao inflando ja acabou o sprite deve ser o de voo comum
+	beq s8,zero,ReturnCheckStFly  # se a animacao inflando ja acabou o sprite deve ser o de voo comum
 	
 	li s7,9
-	j BackCheckStFly
+	j ReturnCheckStFly
 	
 MoveFly:
 
@@ -1121,7 +1205,10 @@ FimMove:
 	
 PlayerColCheck:
 
-	la a0,TempPlayerPos
+	sh s1,PlayerPosX,t0
+	sh s2,PlayerPosY,t0		# armazena temporariamente a nova posicao do jogador, pois o mapa de colisao e feito com base nela, se alguma colisao afeta-la ela sera atualizada ao final
+
+	la a0,PlayerHP # endereco que serve como "ID" do jogador
 	jal CollisionUpdate
 
 	la s3,collisionRender
@@ -1136,8 +1223,58 @@ PlayerColCheck:
 	mul t0,t0,t1			# adiciona as linhas com base no resto do offset Y por 16
 	
 	add s3,s3,t0			# s3, inicialmente como o endereco para o primeiro pixel do jogador no mapa de colisoes renderizado
+		
 	
-SetupPlayerFloor:	
+SetupPlayerCeiling:
+	mv t0,s3
+	li t2,7 # vermelho
+	mv t3,zero
+	li t4,4				# contador de pixels a analisar
+PlayerCeiling:
+	lbu t1,0(t0)
+	bne t1,t2,PlayerDontSnapDown		# analisa primeiro pixel da primeira linha do jogador
+	#sh zero,PlayerSpeedY,t1
+	jal SnapDown			
+	j PlayerCeiling			# repete enquanto colisao acontece
+PlayerDontSnapDown:
+	addi t0,t0,5			# avanca 5 pixels na linha
+	addi t3,t3,1
+	blt t3,t4,PlayerCeiling
+
+		
+SetupPlayerLWall:
+	mv t0,s3
+	li t2,192 # azul
+	mv t3,zero
+	li t4,4				# contador de pixels a analisar
+PlayerLeftWall:
+	lbu t1,0(t0)
+	bne t1,t2,PlayerDontSnapRight		# analisa primeiro pixel da primeira linha do jogador
+	jal SnapRight
+	j PlayerLeftWall		# repete enquanto colisao acontece
+PlayerDontSnapRight:
+	addi t0,t0,160			# avanca 5 linhas no mapa de colisao
+	addi t3,t3,1
+	blt t3,t4,PlayerLeftWall
+
+
+SetupPlayerRWall:
+	mv t0,s3
+	li t2,192 # azul
+	mv t3,zero
+	li t4,4				# contador de pixels a analisar
+PlayerRightWall:
+	lbu t1,15(t0)
+	bne t1,t2,PlayerDontSnapLeft		# analisa ultimo pixel da primeira linha do jogador
+	jal SnapLeft
+	j PlayerRightWall		# repete enquanto colisao acontece
+PlayerDontSnapLeft:
+	addi t0,t0,160			# avanca 5 linhas no mapa de colisao
+	addi t3,t3,1
+	blt t3,t4,PlayerRightWall
+	
+	
+SetupPlayerFloor: ### TODO revisar: colisao do player com o chao precisa ser a ultima pois e a unica de mover o jogador de forma que os pixels verificados dele fiquem fora do mapa de colisao
 	sh zero,PlayerGndState,t5	# determina que jogador esta no ar
 	
 	mv t0,s3
@@ -1153,63 +1290,13 @@ PlayerFloor:
 	li t6,1
 	sh t6,PlayerGndState,t5		# se algum dos pixels logo abaixo do jogador forem de chao ele passa a estar no estado "no chao"
 DontSetGroundSt:
-	bne t1,t2,DontSnapUp		# analisa pixels 1, 6, 11 e 16 da ultima linha do jogador
+	bne t1,t2,PlayerDontSnapUp		# analisa pixels 1, 6, 11 e 16 da ultima linha do jogador
 	jal SnapUp
 	j PlayerFloor			# repete enquanto colisao acontece
-DontSnapUp:
+PlayerDontSnapUp:
 	addi t0,t0,5			# avanca 5 pixels na linha
 	addi t3,t3,1
 	blt t3,t4,PlayerFloor
-	
-	
-SetupPlayerCeiling:
-	mv t0,s3
-	li t2,7 # vermelho
-	mv t3,zero
-	li t4,4				# contador de pixels a analisar
-PlayerCeiling:
-	lbu t1,0(t0)
-	bne t1,t2,DontSnapDown		# analisa primeiro pixel da primeira linha do jogador
-	#sh zero,PlayerSpeedY,t1
-	jal SnapDown			
-	j PlayerCeiling			# repete enquanto colisao acontece
-DontSnapDown:
-	addi t0,t0,5			# avanca 5 pixels na linha
-	addi t3,t3,1
-	blt t3,t4,PlayerCeiling
-
-		
-SetupPlayerLWall:
-	mv t0,s3
-	li t2,192 # azul
-	mv t3,zero
-	li t4,4				# contador de pixels a analisar
-PlayerLeftWall:
-	lbu t1,0(t0)
-	bne t1,t2,DontSnapRight		# analisa primeiro pixel da primeira linha do jogador
-	jal SnapRight
-	j PlayerLeftWall		# repete enquanto colisao acontece
-DontSnapRight:
-	addi t0,t0,160			# avanca 5 linhas no mapa de colisao
-	addi t3,t3,1
-	blt t3,t4,PlayerLeftWall
-
-
-SetupPlayerRWall:
-	mv t0,s3
-	li t2,192 # azul
-	mv t3,zero
-	li t4,4				# contador de pixels a analisar
-PlayerRightWall:
-	lbu t1,15(t0)
-	bne t1,t2,DontSnapLeft		# analisa ultimo pixel da primeira linha do jogador
-	jal SnapLeft
-	j PlayerRightWall		# repete enquanto colisao acontece
-DontSnapLeft:
-	addi t0,t0,160			# avanca 5 linhas no mapa de colisao
-	addi t3,t3,1
-	blt t3,t4,PlayerRightWall
-	
 	
 SuccessfulMove:
 	sh s1,PlayerPosX,t0		# armazena novo X do jogador
@@ -1309,7 +1396,7 @@ SnapRight:	# move o jogador uma coluna para a esquerda, loopando ate nao estar m
 #----------
 PlayerAnimation:
 	addi sp,sp,-4
-	# s0, s1, s2, s3, s4, s5, s6, s7
+	# s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 ### TODO s7 foi removido, atualizar registradores
 	sw ra,0(sp)			# pilha armazena apenas valor de retorno
 
 	lw s0,PlayerLastDir		# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1
@@ -1491,14 +1578,13 @@ ContinueAnim:
 	sh s3,PlayerOldAnim,t1
 	
 	mv s6,zero  # inicia definindo a duracao da nova animacao como zero, para o caso das que tem apenas 1 frame
-	la s7,playerCol  # inicia armazenando o sprite de colisao basico, ja que e usado na maioria dos sprites
 	
-	#mv a0,s3
-	#li a7,1
+	mv a0,s3
+	li a7,1
 	#ecall
 	
-	#la a0,endl
-	#li a7,4
+	la a0,endl
+	li a7,4
 	#ecall	
 	
 	# definicao das animacoes
@@ -1552,7 +1638,7 @@ PlayerStarAttack:
 	li t0,30
 	sw t0,PlayerObjDelay,t1
 
-	li a0,6 # id do objeto (estrela) ###
+	li a0,7 # id do objeto (estrela) ###
 	li a1,1 # quantidade do objeto
 	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
@@ -1565,17 +1651,14 @@ DoneStarObj:
 	
 	la s4,kirbyEat3Gnd
 	li s6,15
-	la s7,playerCol
 	beq s1,zero,GotPlayerSprite
 	li t0,1
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerEatCol
 	beq s1,t0,GotPlayerSprite
 	li t0,2
 	la s4,kirbyEat1
 	li s6,5
-	la s7,playerCol
 	beq s1,t0,GotPlayerSprite
 	li t0,3
 	la s4,kirbyEat0
@@ -1665,9 +1748,7 @@ PlayerQuickFall:
 	li s6,500
 	beq s1,t0,GotPlayerSprite
 
-PlayerFly:
-	la s7,playerCol
-	
+PlayerFly:	
 	jal CheckNextSprAnim
 	andi s1,s1,1
 	
@@ -1680,8 +1761,6 @@ PlayerFly:
 	beq s1,t0,GotPlayerSprite
 	
 PlayerSlowFall:
-	la s7,playerCol
-
 	jal CheckNextSprAnim
 	andi s1,s1,1
 	
@@ -1694,7 +1773,6 @@ PlayerSlowFall:
 	beq s1,t0,GotPlayerSprite
 	
 PlayerBigWalk:
-	la s7,playerCol
 
 	jal CheckNextSprAnim
 	andi s1,s1,3
@@ -1729,7 +1807,6 @@ PlayerStartEat:
 	li t0,1
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerEatCol
 	beq s1,t0,GotPlayerSprite
 
 PlayerEat:
@@ -1742,13 +1819,6 @@ PlayerEat:
 	
 	li t0,15
 	sw t0,PlayerObjDelay,t1
-
-	li a0,5 # id do objeto (area de puxar)
-	li a1,1 # quantidade do objeto
-	lw a2,PlayerPosX
-	lw a3,PlayerLastDir
-	mv a4,zero
-	jal BuildObject
 
 	li a0,2 # id do objeto (poeira pequena)
 	li a1,1 # quantidade do objeto
@@ -1767,12 +1837,6 @@ PlayerEat:
 	j DoneTinyDustObjs
 
 TinyDustObj2:
-	li a0,5 # id do objeto (area de puxar)
-	li a1,1 # quantidade do objeto
-	lw a2,PlayerPosX
-	lw a3,PlayerLastDir
-	mv a4,zero
-	jal BuildObject
 	
 	li a0,2 # id do objeto (poeira pequena)
 	li a1,1 # quantidade do objeto
@@ -1790,13 +1854,7 @@ TinyDustObj2:
 
 	j DoneTinyDustObjs
 
-TinyDustObj3:	
-	li a0,5 # id do objeto (area de puxar)
-	li a1,1 # quantidade do objeto
-	lw a2,PlayerPosX
-	lw a3,PlayerLastDir
-	mv a4,zero
-	jal BuildObject
+TinyDustObj3:
 
 	li a0,2 # id do objeto (poeira pequena)
 	li a1,1 # quantidade do objeto
@@ -1824,7 +1882,6 @@ PlayerEndEat:
 	
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerEatCol
 	beq s1,zero,GotPlayerSprite
 	li t0,1
 	la s4,kirbyEat1
@@ -1845,12 +1902,10 @@ PlayerStartFly:
 	li t0,2
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerEatCol
 	beq s1,t0,GotPlayerSprite
 	li t0,3
 	la s4,kirbyEat3
 	li s6,5
-	la s7,playerCol
 	beq s1,t0,GotPlayerSprite
 	
 PlayerAirAttack:
@@ -1873,17 +1928,14 @@ DoneAirObj:
 	
 	la s4,kirbyEat3
 	li s6,15
-	la s7,playerCol
 	beq s1,zero,GotPlayerSprite
 	li t0,1
 	la s4,kirbyEat2
 	li s6,5
-	la s7,playerEatCol
 	beq s1,t0,GotPlayerSprite
 	li t0,2
 	la s4,kirbyEat1
 	li s6,5
-	la s7,playerCol
 	beq s1,t0,GotPlayerSprite
 	li t0,3
 	la s4,kirbyEat0
@@ -1892,72 +1944,57 @@ DoneAirObj:
 
 PlayerIceAttack:
 	lw t0,PlayerObjDelay
-	li t1,8
+	li t1,10
 	beq t0,t1,IceObjects2
 	bgt t0,zero,DoneIceObjs
 	
-	li t0,16
+	li t0,20
 	sw t0,PlayerObjDelay,t1
 
 	li a0,4 # id do objeto (gelo)
-	
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
-	mv a4,zero ### TODO trocar essa logica para usar o MovPat
-	
-	lhu s8,PlayerPosX
-	lhu s9,PlayerPosY
-	
-	li a1,1 # quantidade do objeto
-	addi t0,s8,8  
-	addi t1,s9,20
-	slli a2,t1,16
-	add a2,a2,t0
+	li a4,0
 	jal BuildObject
 	
+	li a0,4 # id do objeto (gelo)
 	li a1,1 # quantidade do objeto
-	addi t0,s8,8
-	addi t1,s9,-20
-	slli a2,t1,16
-	add a2,a2,t0
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir	
+	li a4,2
 	jal BuildObject
 	
+	li a0,4 # id do objeto (gelo)
 	li a1,1 # quantidade do objeto
-	addi t0,s8,-20
-	addi t1,s9,0
-	slli a2,t1,16
-	add a2,a2,t0
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,4
 	jal BuildObject
 	
 	j DoneIceObjs
 	
 IceObjects2:
+	
 	li a0,4 # id do objeto (gelo)
-	
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
-	mv a4,zero
-	
-	lhu s8,PlayerPosX
-	lhu s9,PlayerPosY
-	
-	li a1,1 # quantidade do objeto
-	addi t0,s8,-8
-	addi t1,s9,20
-	slli a2,t1,16
-	add a2,a2,t0
+	li a4,1
 	jal BuildObject
 	
+	li a0,4 # id do objeto (gelo)
 	li a1,1 # quantidade do objeto
-	addi t0,s8,-8
-	addi t1,s9,-20
-	slli a2,t1,16
-	add a2,a2,t0
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,3
 	jal BuildObject
 	
+	li a0,4 # id do objeto (gelo)
 	li a1,1 # quantidade do objeto
-	addi t0,s8,20
-	addi t1,s9,0
-	slli a2,t1,16
-	add a2,a2,t0
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,5
 	jal BuildObject
 	
 	j DoneIceObjs
@@ -2014,7 +2051,6 @@ GotPlayerSprite:
 	sh s1,PlayerAnimCount,t0
 	sw s4,PlayerSprite,t0	# armazena o endereco do novo sprite no PlayerSprite
 	sh s6,PlayerMaxFrame,t0  # armazena a duracao da animacao atual
-	sw s7,PlayerColSprite,t0  # armazena o sprite de colisao
 
 FimPlayerAnimation:
 	lw ra,0(sp)
@@ -2040,7 +2076,7 @@ keepSprAnim:
 	
 #----------
 Print: 		# a0 = sprite que vai ser impresso; a1 = posicao do sprite 0xYYYYXXXX;
-		# a2 = sprite de colisao; a3 = 0 para esquerda ou 1 para direita; a4 = 0, 1 ou 2 para o caso especifico do jogador estar com poderes
+		# ### TODO a2 nao e mais utilizado, atualizar registradores; a3 = 0 para esquerda ou 1 para direita; a4 = 0, 1 ou 2 para o caso especifico do jogador estar com poderes
 	# s0, s1, s2, s3, s4, s5, s6 
 	
 	addi sp,sp,-40
@@ -2081,7 +2117,7 @@ Print: 		# a0 = sprite que vai ser impresso; a1 = posicao do sprite 0xYYYYXXXX;
 	
 	mul t1,t1,t4
 	add s7,a3,t1 			# adiciona y ao endereco do bitmap e armazena esse valor em s7 para evitar o underflow de sprites no bitmap
-	addi s8,s7,319			# s8, valor maximo da linha, para evitar o overflow de sprites
+	addi s8,s7,316			# s8, valor maximo da linha, para evitar o overflow de sprites
 	
 	add t0,s7,t3 			# adiciona x ao endereco do bitmap
 	
@@ -2218,13 +2254,13 @@ FimPrint:
 	lw s7,32(sp)
 	lw s8,36(sp)
 	addi sp,sp,40
-
+	
 	ret 
 
 #----------
-CollisionUpdate: # a0 = endereco com a posicao inicial
-
-	addi sp,sp,-32
+CollisionUpdate: # a0 = endereco com o ID do jogador, objeto ou inimigo
+	
+	addi sp,sp,-36
 	sw ra,0(sp)
 	sw s0,4(sp)
 	sw s1,8(sp)
@@ -2233,22 +2269,21 @@ CollisionUpdate: # a0 = endereco com a posicao inicial
 	sw s4,20(sp)
 	sw s5,24(sp)
 	sw s6,28(sp)
+	sw s7,32(sp)
 	
-	lhu a1,0(a0)			# a1, posicao X original do sprite
-	lhu a2,2(a0)			# a2, posicao Y original do sprite
+	lhu a1,4(a0)			# a1, posicao X original do sprite
+	lhu a2,6(a0)			# a2, posicao Y original do sprite
 	
-	#andi s0,a1,0xf			# s0, resto da posicao X por 16
-	srli s1,a1,4			# s1, divisao da posicao X por 16
+	srli s0,a1,4			# s0, divisao da posicao X por 16
 	
-	#andi s2,a2,0xf			# s2, resto da posicao Y por 16
-	srli s3,a2,4			# s3, divisao da posicao Y por 16
+	srli s1,a2,4			# s1, divisao da posicao Y por 16
 	
 	la t0,mapa40x30 #mapaCodesAtual			
 	lw t1,0(t0)			# t1, tamanho do mapa de tiles
-	mul t2,s3,t1			
+	mul t2,s1,t1			
 	
 	addi t0,t0,spriteHeader
-	add t0,t0,s1			# adiciona o numero de colunas de tiles
+	add t0,t0,s0			# adiciona o numero de colunas de tiles
 	add t0,t0,t2			# adiciona o numero de linhas de tiles
 	
 	lbu t4,0(t0)			# valor do primeiro tile -> t4 = 0x00000011
@@ -2266,101 +2301,267 @@ CollisionUpdate: # a0 = endereco com a posicao inicial
 	slli t3,t3,24
 	add t4,t4,t3			# t4 = 0x44332211
 	
-	la s4,BGTileCodes		# s4, endereco com todos os codigos de tile
-	sw t4,0(s4)			
-	mv s5,zero			# s5, contador de tiles
-LoopRenderCol:
+	la s2,BGTileCodes		# s2, endereco com todos os codigos de tile
+	sw t4,0(s2)			
+	mv s3,zero			# s3, contador de tiles
+LoopTileRenderCol:
 
-	lbu s6,0(s4) 			# s6, codigo do tile atual
+	lbu s4,0(s2) 			# s4, codigo do tile atual
 
 	li t3,1				# analise dos codigos de tile
-	beq s6,t3,GetColTile1
+	beq s4,t3,GetColTile1
 	li t3,2
-	beq s6,t3,GetColTile2
+	beq s4,t3,GetColTile2
 	li t3,3
-	beq s6,t3,GetColTile3
+	beq s4,t3,GetColTile3
 	li t3,4
-	beq s6,t3,GetColTile4
+	beq s4,t3,GetColTile4
 	li t3,5
-	beq s6,t3,GetColTile5
+	beq s4,t3,GetColTile5
 	li t3,6
-	beq s6,t3,GetColTile6
+	beq s4,t3,GetColTile6
 	
 GetColTile1:
 	#la a3,grama
 	la a5,emptyCol
-	j GotLimparTile
+	j GotCollisionTile
 GetColTile2:
 	#la a3,chao
 	la a5,emptyCol
-	j GotLimparTile
+	j GotCollisionTile
 GetColTile3:
 	#la a3,plataforma1
 	la a5,plataforma1Col
-	j GotLimparTile
+	j GotCollisionTile
 GetColTile4:
 	#la a3,plataforma2
 	la a5,plataforma2Col
-	j GotLimparTile
+	j GotCollisionTile
 GetColTile5:
 	#la a3,plataforma3
 	la a5,plataforma3Col
-	j GotLimparTile
+	j GotCollisionTile
 GetColTile6:
 	#la a3,blocoExemp
 	la a5,blocoExempCol
-	j GotLimparTile
+	j GotCollisionTile
 
-GotLimparTile:	# a5, sprite de colisao que sera desenhado
+GotCollisionTile:	# a5, sprite de colisao que sera desenhado
 	
 	la t0,collisionRender
-	
-	beq s5,zero,LeftColTile
 	li t1,2
-	beq s5,t1,LeftColTile
+	
+	beq s3,zero,LeftColTile
+	beq s3,t1,LeftColTile
 	# se for um dos tiles da coluna direita:
 	addi t0,t0,16
 LeftColTile:
-	blt s5,t1,UpperColTile
+	blt s3,t1,UpperColTile
 	# se for um dos tiles da linha de baixo
 	addi t0,t0,512
 UpperColTile:		
 	
-	mv t1,a5
-	addi t1,t1,spriteHeader
 	mv t2,zero			# t2, contador de colunas
 	mv t3,zero			# t3, contador de linhas
 	li t4,16
 	li t5,16
+	
+	mv t1,a5			# se a5 for um sprite de colisao ele e salvo normalmente
+	addi t1,t1,spriteHeader 
+	j SaveTileRenderCol
 
 SaveTileRenderCol:
 
 	lw t6,0(t1) 			# guarda uma word do tile
-	sw t6,0(t0) 			# salva no render de colisao
+	sw t6,0(t0) 			# salva no mapa de colisao
 
-	addi t0,t0,4			# avanca o endereco do bitmap em 1
-	addi t1,t1,4 			# avanca o endereco da imagem em 1		
+	addi t0,t0,4			# avanca o endereco do bitmap em 4
+	addi t1,t1,4 			# avanca o endereco da imagem em 4		
 	
-	addi t2,t2,4 			# avanca o contador de colunas em 1
+	addi t2,t2,4 			# avanca o contador de colunas em 4
 	blt t2,t4,SaveTileRenderCol 	# enquanto a linha nao estiver completa, continua desenhando ela
 	
-	addi t0,t0,16 			# avanca para a proxima linha do render
+	addi t0,t0,16 			# avanca para a proxima linha do mapa de colisao
 
 	mv t2,zero 			# reseta o contador de colunas
 	addi t3,t3,1 			# avanca o contador de linhas em 1
 	blt t3,t5,SaveTileRenderCol 	# enquanto o contador de linhas for menor que a altura repete a funcao
 
 NextTileRenderCol:
-	addi s4,s4,1			# avanca para o proximo codigo de tile
-	addi s5,s5,1			# avanca o contador de tiles
+	addi s2,s2,1			# avanca para o proximo codigo de tile
+	addi s3,s3,1			# avanca o contador de tiles
 	
 	li t2,4
-	beq s5,t2,FimRenderCol		# se ja foram todos os 4 tiles segue com o CollisionUpdate
-	j LoopRenderCol
+	beq s3,t2,FimTileRenderCol	# se ja foram todos os 4 tiles segue com o CollisionUpdate
+	j LoopTileRenderCol
 	
-FimRenderCol:
-RenderObjectsCol:
+FimTileRenderCol:
+	# inicio da renderizacao do jogador, objetos e inimigos no mapa de colisao
+
+	la s5,Obj0ID
+	li t0,objSize
+	sub s5,s5,t0
+	li s6,-1 			# s6, contador de objetos a desenhar, inicia em -1 para analisar o jogador
 	
+	li s7,-1			# ID do jogador tratado como -1
+	la t0,PlayerHP
+	beq a0,t0,RenderNextObj 	# skipa o jogador se estiver atualizando a colisao para ele
+	j RenderObjAtual
+	
+IterateRenderObjCols:
+	beq a0,s5,RenderNextObj
+
+	lw s7,0(s5) # ID
+	
+	bne s7,zero,RenderObjAtual
+
+RenderNextObj:
+	addi s6,s6,1
+	li t0,objQuant
+	beq s6,t0,FimCollisionUpdate
+	
+	addi s5,s5,objSize
+	j IterateRenderObjCols
+
+RenderObjAtual:
+	
+	li t0,enemyStartIndex
+	blt s7,t0,RenderNotEnemy
+	lhu t0,12(s5) # Status, se for um inimigo e o status dele for 0 significa que esta intivo
+	beq t0,zero,RenderNextObj
+RenderNotEnemy:
+	# s5 = endereco inicial do objeto, s7 = ID
+	
+	li t0,-1
+	li a5,playerCol
+	beq s7,t0,GotCollision
+	
+	li t0,tinyDustID
+	li a5,playerPullAreaCol
+	beq s7,t0,GotCollision
+	
+	li t0,fireID
+	li a5,playerFireCol
+	beq s7,t0,GotCollision
+	
+	li t0,iceID
+	li a5,playerIceCol
+	beq s7,t0,GotCollision
+	
+	li t0,airID
+	li a5,playerStarCol
+	beq s7,t0,GotCollision
+	
+	li t0,starID
+	li a5,playerStarCol
+	beq s7,t0,GotCollision
+	
+	li t0,waddleID
+	li a5,waddleDeeCol
+	beq s7,t0,GotCollision
+
+	j RenderNextObj
+
+GotCollision:
+	
+	# s5 = endereco inicial do objeto, s7 = ID, s0 e s1 = posicoes iniciais do mapa de colisao divididas por 16, a5 = cor da colisao
+	lh a1,4(s5) # PosX
+	lh a2,6(s5) # PosY
+	
+	slli a3,s0,4
+	slli a4,s1,4		# posicoes do mapa de colisao sao multiplicadas por 16 para encontrar a posicao dele nas coordenadas base
+	
+	# objeto esta dentro da area de colisao se:
+	# (objLeftX <= colRightX) e (objRightX >= colLeftX) e (objTopY <= colBottomY) e (objBottomY >= colTopY)
+	# equivalente a:
+	# (colRightX - objLeftX >= 0) e (objRightX - colLeftX >= 0) e (colBottomY - objTopY >= 0) e (objBottomY - colTopY >= 0)
+	# a1 = objLeftX
+	# a1+15 = objRightX
+	# a2 = objTopY
+	# a2+15 = objBottomY
+	# a3 = colLeftX
+	# a3+31 = colRightX
+	# a4 = colTopY
+	# a4+31 = colBottomY
+	
+	# tamanho X do sprite a renderizar = min(16, min((colRightX - objLeftX), (objRightX - colLeftX)))
+	# tamanho Y do sprite a renderizar = min(16, min((colBottomY - objTopY), (objBottomY - colTopY)))
+	
+	# posicao X do sprite = max(0, objLeftX - colLeftX)
+	# posicao Y do sprite = max(0, objUpperY - colUpperY)
+	
+	li t6,16
+	
+	addi t0,a3,31
+	sub t1,t0,a1
+	
+	addi t0,a1,15
+	sub t2,t0,a3
+	
+	mv t4,t1
+	blt t4,t6,GotSizeXObjRender
+	mv t4,t2
+	blt t4,t6,GotSizeXObjRender # impossivel de mais de um dos valores ser menor que 16
+	mv t4,t6
+	addi t4,t4,-1
+GotSizeXObjRender:
+
+	addi t0,a4,31
+	sub t1,t0,a2
+	
+	addi t0,a2,15
+	sub t2,t0,a4
+	
+	mv t5,t1
+	blt t5,t6,GotSizeYObjRender
+	mv t5,t2
+	blt t5,t6,GotSizeYObjRender # impossivel de mais de um dos valores ser menor que 16
+	mv t5,t6
+	addi t5,t5,-1
+GotSizeYObjRender:
+
+	addi t4,t4,1
+	addi t5,t5,1 # para serem tratados como valores de tamanho e necessario adicionar 1 para cada um deles
+
+	ble t4,zero,RenderNextObj # # # # # # #
+	ble t5,zero,RenderNextObj # se qualquer um dos tamanhos for negativo ou 0 quer dizer que o sprite esta fora do mapa de colisao
+	
+	sub t2,a1,a3
+	bgt t2,zero,GotPosXObjRender
+	mv t2,zero
+GotPosXObjRender:
+	
+	sub t3,a2,a4
+	bgt t3,zero,GotPosYObjRender
+	mv t3,zero
+GotPosYObjRender:
+
+	slli t3,t3,5 # multiplica a posicao Y por 32, ja que e a largura do mapa de colisao
+	
+	la t0,collisionRender
+	add t0,t0,t2
+	add t0,t0,t3 # adiciona posicao do sprite ao endereco do mapa de colisao
+	
+	mv t2,zero # contador de colunas
+	mv t3,zero # contador de linhas
+	
+SaveObjRenderCol:
+
+	sb a5,0(t0) 			# salva a cor da colisao no render de colisao
+
+	addi t0,t0,1			# avanca o endereco do mapa de colisao em 1		
+	
+	addi t2,t2,1 			# avanca o contador de colunas em 1
+	blt t2,t4,SaveObjRenderCol 	# enquanto a linha nao estiver completa, continua desenhando ela
+	
+	addi t0,t0,32 			# avanca para a proxima linha do mapa de colisao
+	sub t0,t0,t4 			# subtrai largura do sprite
+
+	mv t2,zero 			# reseta o contador de colunas
+	addi t3,t3,1 			# avanca o contador de linhas em 1
+	blt t3,t5,SaveObjRenderCol 	# enquanto o contador de linhas for menor que a altura repete a funcao
+	
+	j RenderNextObj
 
 FimCollisionUpdate:
 	
@@ -2372,7 +2573,8 @@ FimCollisionUpdate:
 	lw s4,20(sp)
 	lw s5,24(sp)
 	lw s6,28(sp)
-	addi sp,sp,32
+	lw s7,32(sp)
+	addi sp,sp,36
 
 	ret 
 
@@ -2433,27 +2635,27 @@ LoopBuild:	# passa pelo mapa de tiles e usa ele para montar o mapa de pixels
 	
 GetTile1:
 	la a1,grama
-	la a5,emptyCol
+	#la a5,emptyCol
 	j GotTile
 GetTile2:
 	la a1,chao
-	la a5,emptyCol
+	#la a5,emptyCol
 	j GotTile
 GetTile3:
 	la a1,plataforma1
-	la a5,plataforma1Col
+	#la a5,plataforma1Col
 	j GotTile
 GetTile4:
 	la a1,plataforma2
-	la a5,plataforma2Col
+	#la a5,plataforma2Col
 	j GotTile
 GetTile5:
 	la a1,plataforma3
-	la a5,plataforma3Col
+	#la a5,plataforma3Col
 	j GotTile
 GetTile6:
 	la a1,blocoExemp
-	la a5,blocoExempCol
+	#la a5,blocoExempCol
 	j GotTile
 
 GotTile:

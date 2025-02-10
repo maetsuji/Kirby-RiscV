@@ -4,6 +4,8 @@
 .eqv iceID 4
 .eqv pullAreaID 5
 .eqv airID 6
+.eqv starID 7
+.eqv waddleID 8
 
 #.eqv FireSpeedX 4
 #.eqv FireSpeedY 1
