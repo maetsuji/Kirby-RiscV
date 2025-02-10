@@ -21,7 +21,7 @@ PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y,
 PlayerGndState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
 PlayerAnimState:.half 0		
 # 0 = vazio,  1 = atacando, 2 = vazio com poder 1, 3 = vazio com poder 2, 4 = inimigo 1 na boca, 5 = inimigo 2 na boca
-# 6 = transicao inicio eat, 7 = transicao cancelar eat, 8 = transicao engolir, 9 = transicao inflar, 10 = transicao soltar ar, 11 = transicao soltar item
+# 6 = transicao inicio eat, 7 = transicao cancelar eat, 8 = abaixar/transicao engolir, 9 = transicao inflar, 10 = transicao soltar ar, 11 = transicao soltar item
 # 12 = cheio sem poder, 13 = cheio com poder 1, 14 = cheio com poder 2
 PlayerPowState:	.word 0		# 0 = vazio sem poder, 1 = fogo, 2 = gelo, 3 = inimigo simples na boca, 4 = inimigo fogo na boca, 5 = inimigo gelo na boca
 PlayerAnim:	.half 0
@@ -159,7 +159,6 @@ Clock:
 	sub t0,a0,t0		# subtrai o novo tempo global pelo ultimo valor salvo, para definir quantos milissegundos passaram desde o ultimo frame
 	
 	mv a0,t0
-	lhu a0,PlayerAnimState
 	li a7,1
 	#ecall
 	
@@ -179,41 +178,41 @@ FimClock:
 
 	# debugs
 
-	lhu a0,PlayerAnimCount
+	lhu a0,PlayerAnimState
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall	
+	ecall	
 
 	lhu a0,PlayerAnimTransit
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall		
+	ecall		
 
 	lhu a0,PlayerPowState
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall			
+	ecall			
 	
 	lhu a0,PlayerAnim
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall		
+	ecall		
 
 	la a0,endl
 	li a7,4
-	#ecall			
+	ecall			
 
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
 
@@ -350,6 +349,24 @@ NewInstance:
 	beq a0,t0,BuildWaddleDee
 	
 BuildDust:
+	li t0,12
+	beq a3,zero,DustBreakRtoL
+	li t0,-12
+DustBreakRtoL:
+	add s4,s4,t0 # define em qual lado do kirby vai aparecer
+	
+	addi t1,s5,4 
+	
+	slli t2,a2,16
+	srli t2,t2,16 # isola posX
+	srli t3,a2,16 # isola posY
+	
+	add t2,t2,t0
+	add t3,t3,t1
+	slli t3,t3,16
+	add t3,t3,t2
+	sw t3,4(s0) # posX e posY
+
 	# s0 tem o endereco inicial das variaveis do objeto
 	li t0,4
 	sh t0,12(s0) # lifeFrames
@@ -469,11 +486,11 @@ IterateDrawObjs:
 	
 	mv a0,s2
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall
+	#ecall
 	
 	bne s2,zero,DrawObjAtual
 	
@@ -521,14 +538,7 @@ SkipCheckBounds:
 
 DrawDust:
 	
-	li t0,12
-	beq s6,zero,DustBreakRtoL
-	li t0,-12
-DustBreakRtoL:
-	add s4,s4,t0 # define em qual lado do kirby vai aparecer
-	
-	addi t1,s5,4 
-	slli t0,t1,16
+	slli t0,s5,16
 	add a1,t0,s4
 	
 	mv a3,s6
@@ -774,11 +784,11 @@ SetEnemyLifeFrames:
 	
 	mv a0,s8 ###
 	li a7,1
-	ecall
+	#ecall
 
 	la a0,endl
 	li a7,4
-	ecall
+	#ecall
 	
 	sh s8,12(s0)
 	bne s8,zero,DrawNextObj
@@ -792,7 +802,7 @@ FimDrawObjects:
 	
 	la a0,endl
 	li a7,4
-	ecall
+	#ecall
 
 	ret
 
@@ -908,7 +918,7 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	lhu s1,PlayerPosX		# s1, posicao X do jogador no mapa
 	lhu s2,PlayerPosY		# s2, posicao Y do jogador no mapa
 	lhu s6,PlayerAnimState		# s6, valor de estado do jogador
-	mv s7,s6
+	mv s7,s6			# s7, novo valor de estado do jogador
 	lhu s8,PlayerAnimTransit
 	lw s9,PlayerLock
 	lw s10,PlayerPowState
@@ -923,6 +933,9 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	
 	li t0,7
 	beq s6,t0,EndAttackEat
+	
+	li t0,8
+	beq s6,t0,DoneAttack # se estiver para baixo ou engolindo um inimigo skipa para as verificacoes de movimentacao, verificado novamente antes de apertar 's'
 	
 	li t0,10
 	beq s6,t0,EndAttackAir
@@ -1095,12 +1108,14 @@ VerticalMove:
 	li t2,gravityAcc		# t2, velocidade de aceleracao da gravidade
 	li t3,playerMaxQuickFallSp	# t3, velocidade maxima de queda do jogador
 	
+	# s7, novo valor de animacao do jogador; s8, PlayerAnimTransit s9, PlayerLock; s10, PlayerPowState # # # # #
+	
 	li t0,playerFlyIndex
 	blt s6,t0,NotFlying
 	li t3,playerMaxSlowFallSp
 NotFlying:
 	
-	bne zero,s9,LockedJump
+	bne zero,s9,LockedJump 
 	
 	li t0,9
 	beq s6,t0,CheckStartFly
@@ -1115,9 +1130,51 @@ LockedJump:
 
 	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo
 	
+	li t0,8
+	beq s6,t0,EndEatingDown
+BackEatingDown:
+	
+	li t0,'s'
+	beq s0,t0,MoveDown
+	
 	blt s5,zero,DoneVerticalMv	# se o jogador estiver indo para cima o chao nao para ele (impede um snap que estava acontecendo)
 	mv s5,zero 		 	# se o jogador nao estiver no ar ou tiver pulado, entao esta no chao e sua velocidade Y se torna zero
 	j DoneVerticalMv
+	
+EndEatingDown:
+	bgt s8,zero,BackEatingDown
+	
+	li s7,0 # de qualquer forma apos agachar o AnimState sera 0
+	
+	sw zero,PlayerLock,t0 # destrava o jogador
+	
+	li t0,3
+	blt s10,t0,DoneVerticalMv # se nao tiver com nenhum item na boca nao muda o PowState
+	
+	addi t0,s10,-3 # basta subtrair 3 do PowState de item na boca para definir o novo PowState 
+	sw t0,PlayerPowState,t1
+	j DoneVerticalMv
+	
+MoveDown:
+	li s7,8 
+	
+	li t0,1
+	sw t0,PlayerLock,t2 # trava a movimentacao do jogador enquanto estiver comendo, liberado ao final da animacao no PlayerAnimation
+	
+	li t1,25
+	li t0,3
+	blt s10,t0,CrouchHoldDelay
+	li t1,40	# tempo da animacao normal de comer
+	beq s10,t0,EatingHoldDelay
+	li t1,60 	# tempo da animacao de comer e ganhar poder
+EatingHoldDelay:
+	bgt s8,zero,DoneVerticalMv # se ja estiver em uma animacao de comer nao atualiza o delay
+	
+CrouchHoldDelay:	
+	sh t1,PlayerAnimTransit,t2
+	
+	j DoneVerticalMv
+	
 	
 CheckStartFly:
 	li s7,playerFlyIndex 
@@ -1167,7 +1224,7 @@ MoveFall:	# se estado for 0 entao o jogador esta caindo
 
 DoneVerticalMv:	
 	sh s5,PlayerSpeedY,t0		# armazena a velocidade Y completa do jogador (em centenas)
-	sh s7,PlayerAnimState,t0
+	sh s7,PlayerAnimState,t0  	# # # # # # # armazena novo estado de animacao do jogador
 	li t0,100
 	div t1,s5,t0			# divide a velocidade por 100 para obter o numero de pixels a se mover
 	
@@ -1426,6 +1483,9 @@ SkipSubDelay:
 	beq t0,t1,DefineAnimHorz
 	
 DefTransition: # se alguma transicao esta acontecendo
+
+	li t0,8
+	beq s8,t0,DefDownAnims # animacoes de agachar
 	
 	li t0,1
 	beq s9,t0,DefFireAnim
@@ -1445,6 +1505,16 @@ DefTransition: # se alguma transicao esta acontecendo
 	li t0,7
 	li s1,12
 	beq s8,t0,DefinedAnim
+	
+	j EndDefFireIce
+	
+DefDownAnims:
+	li t0,3
+	li s1,19
+	blt s9,t0,DefinedAnim
+	
+	li s1,19 ### 20
+	j DefinedAnim
 	
 DefFireAnim:
 	li t0,1
@@ -1556,7 +1626,7 @@ DefinedAnim:
 	lhu s1,PlayerAnimCount
 	lhu s2,PlayerMaxFrame	# duracao do sprite atual em frames, se for 0 sera um sprite sem animacao
 
-	lhu s3,PlayerAnim
+	lhu s3,PlayerAnim # # # # atualiza s3 com o valor anterior de s1
 	lhu t0,PlayerOldAnim
 	beq s3,t0,ContinueAnim  # continua uma animacao se o valor dela nao trocou
 	
@@ -1630,6 +1700,11 @@ ContinueAnim:
 	beq s3,t0,GotPlayerSprite
 	li t0,18
 	beq s3,t0,PlayerStarAttack
+	li t0,19
+	la s4,kirbyDown
+	beq s3,t0,GotPlayerSprite
+	###li t0,20
+	###beq s3,t0,PlayerDownEating
 		
 PlayerStarAttack:
 	lw t0,PlayerObjDelay
