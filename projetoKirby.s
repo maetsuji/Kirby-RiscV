@@ -20,9 +20,9 @@ PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X,
 PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y, dividida por 100 para ser usada como pixels
 PlayerGndState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
 PlayerAnimState:.half 0		
-# 0 = vazio,  1 = atacando, 2 = -, 3 = -, 4 = -, 5 = atingido
+# 0 = vazio,  1 = atacando, 2 = -, 3 = -, 4 = atingido com ar, 5 = atingido
 # 6 = transicao inicio eat, 7 = transicao cancelar eat, 8 = abaixar/transicao engolir, 9 = transicao inflar, 10 = transicao soltar ar, 11 = transicao soltar item
-# 13 = cheio de ar
+# 2 = cheio de ar
 PlayerPowState:	.word 0		# 0 = vazio sem poder, 1 = fogo, 2 = gelo, 3 = inimigo simples na boca, 4 = inimigo fogo na boca, 5 = inimigo gelo na boca
 PlayerAnim:	.half 0
 PlayerOldAnim:	.half 0
@@ -289,7 +289,7 @@ CheckScreenBounds: # a0 = endereco do objeto; a1 = 1 para despawnar, 0 para ativ
 	
 	li t0,-16
 	blt s1,t0,OutOfBounds #TopOOB
-	li t0,224 
+	li t0,240 
 	bgt s1,t0,OutOfBounds #BottomOOB
 	
 	j EndCheckbounds
@@ -865,9 +865,13 @@ DrawStarRight:
 	
 	
 DrawWaddleDee:
-	blt s7,zero,DrawNextObj # se estiver com status -1 = morto, 0 = desativado (fora da tela),  1 = ativado, 2 = atingido, 3 = sendo puxado
+	li t0,-1
+	beq s7,t0,DrawNextObj # se estiver com status -1 = morto, 0 = desativado (fora da tela),  1 = ativado, 2 = atingido, 3 = sendo puxado
 	
-	beq s9,zero,SkipSubExtraWaddle
+	li t0,3
+	beq s7,t0,PullingWaddleDee
+	
+	beq s9,zero,SkipSubExtraWaddle # tempo
 	addi s9,s9,-1
 	sh s9,14(s0)
 SkipSubExtraWaddle:
@@ -892,7 +896,7 @@ SkipSubExtraWaddle:
 GotWaddleDeeDir:
 
 	li t2,2 	# # # # # "queda" do inimigo, se houver chao ela e cancelada
-	andi t0,s9,1
+	andi t0,s8,1 # lifeFrames
 	sub t2,t2,t0 	# reduz a velocidade de queda 
 	
 	add s4,s4,t1
@@ -960,6 +964,45 @@ GotWaddleDeathPos:
 
 	j DrawNextObj
 	
+PullingWaddleDee:
+	
+	li t0,1
+	sh t0,PlayerAnimState,t1 # manualmente mantem a naimacao do jogador como a de puxando
+	
+	lh t0,PlayerLastDir
+	li t2,-2
+	bne t0,zero,PullingWaddleToLeft
+	li t2,2
+PullingWaddleToLeft:
+	
+	lh t0,PlayerPosY
+	addi t0,t0,-2
+	sub t3,t0,s5 # player Y - waddle dee Y = velocidade de subida/descida
+	
+	li t1,-2
+	blt t3,t1,SetPullRiseWaddle
+	
+	li t1,2
+	bgt t3,t1,SetPullFallWaddle
+	j GotPullWaddleSpY
+	
+SetPullRiseWaddle:
+	li t3,-2
+	j GotPullWaddleSpY
+SetPullFallWaddle:
+	li t3,2
+GotPullWaddleSpY:
+
+	add s4,s4,t2
+	add s5,s5,t3
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	
+	la a0,waddleDee1
+	
+	j GotWaddleDeeSprt
+	
 NotWaddleDeath:
 	mv t0,s8 # LifeFrames
 	andi t0,t0,31
@@ -1025,11 +1068,9 @@ EnemyCollisionCheck: # a0 = endereco do objeto sendo analisado
 	lh s2,6(s0)	# s2, PosY
 	lh s4,0(s0)	# s4, ID
 	lh s5,10(s0)	# s5, Status
-
-	#addi s2,s2,2 	# # # # # "queda" do inimigo, se houver chao ela e cancelada
-	#lh t0,12(s0) 	# LifeFrames
-	#andi t0,t0,1
-	#sub s2,s2,t0 	# reduz a velocidade de queda 
+	
+	li t0,3
+	beq s5,t0,DoneEnemyCollisionCheck
 		
 	la s3,collisionRender
 	addi s3,s3,spriteHeader
@@ -1083,13 +1124,13 @@ EnemyPlayer:
 	lbu t1,0(t0)
 	
 	li t5,playerPullAreaCol
-	#beq t1,t5,EnemyPull # determinado apos a EnemyCollisionCheck
+	beq t1,t5,EnemyPull # determinado apos a EnemyCollisionCheck
 	
 	li t5,3
 	bne t5,s5,NotPullingEnemy
 	
 	li t5,playerCol
-	#beq t1,t5,EnemyEaten # determinado apos EnemyPull
+	beq t1,t5,EnemyEaten # determinado apos EnemyPull
 	
 NotPullingEnemy:
 	beq t1,t2,EnemyHit
@@ -1201,6 +1242,32 @@ DoneEnemyCollisionCheck:
 	addi sp,sp,28
 	
 	ret
+
+#-----
+EnemyPull:
+	li t0,3
+	sh t0,10(s0)
+
+	j DoneEnemyCollisionCheck
+
+#-----
+EnemyEaten:
+	li t0,-1
+	sh t0,10(s0)
+
+	li t0,waddleID
+	li t1,playerMouthIndex # 3
+	beq s4,t0,SetEatenPower
+	li t0,hotHeadID
+	li t1,4
+	beq s4,t0,SetEatenPower
+	li t0,chillyID
+	li t1,5
+	beq s4,t0,SetEatenPower
+
+SetEatenPower:
+	sw t1,PlayerPowState,t0
+	j DoneEnemyCollisionCheck
 
 #----------
 ChangeFrame:
@@ -1746,6 +1813,9 @@ PlayerEnemies:
 	beq t1,t3,PlayerEnemies
 	
 PlayerHit:
+	andi t1,t3,1 # se o contador de pixels for impar = hit pela direita = jogador vira a direita
+	sw t1,PlayerLastDir,t5
+
 	li t1,playerKnockback 
 	lw t5,PlayerLastDir
 	beq t5,zero,GotKnockback
@@ -1759,7 +1829,11 @@ GotKnockback:
 	li t1,125 # tempo do jogador invencivel
 	sw t1,PlayerIFrames,t5
 	
-	li t1,5 # animacao de hit
+	li t1,4 # animacao de hit voando
+	li t5,playerFlyIndex
+	beq s6,t5,DefPlayerFlyHit 
+	li t1,5 # animacao de hit comum
+DefPlayerFlyHit:
 	sh t1,PlayerAnimState,t5 # caso bem especifico em que a animacao do jogador e setada apos as verificacoes de movimento e de ataque
 	
 	li t1,1
@@ -1970,6 +2044,12 @@ SkipSubIFrames:
 	lhu s9,PlayerPowState
 	
 	bgt t3,zero,DefTransition
+	
+	li t0,4 # se acabar o tempo de transicao (hit voando), volta o jogador ao estado de voando
+	bne s8,t0,NotFlyingHitToFly
+	li s8,playerFlyIndex
+	sh s8,PlayerAnimState,t0
+NotFlyingHitToFly:
 
 	lhu t0,PlayerGndState		# analisa se o jogador esta no chao ou no ar
 	beq t0,zero,DefineAnimVert
@@ -1978,9 +2058,12 @@ SkipSubIFrames:
 	
 DefTransition: # se alguma transicao esta acontecendo
 
-	li t0,5
-	li s1,21
+	li t0,4
+	li s1,22
 	beq s8,t0,DefinedAnim ### TODO verificacao se esta cheio, com poder, etc
+
+	li t0,5
+	beq s8,t0,DefHitState ### TODO verificacao se esta cheio, com poder, etc
 
 	li t0,8
 	beq s8,t0,DefDownAnims # animacoes de agachar
@@ -2005,6 +2088,15 @@ DefTransition: # se alguma transicao esta acontecendo
 	beq s8,t0,DefinedAnim
 	
 	j EndDefFireIce
+	
+DefHitState:
+	
+	li s1,22
+	li t0,playerMouthIndex
+	bge s9,t0,DefinedAnim
+	
+	li s1,21
+	j DefinedAnim
 	
 DefDownAnims:
 	li t0,3
@@ -2204,10 +2296,12 @@ ContinueAnim:
 	li t0,20
 	beq s3,t0,PlayerDownEating
 	li t0,21
-	la s4,kirbyHit 
-	beq s3,t0,PlayerTombo
+	beq s3,t0,PlayerHitAnim
+	li t0,22
+	la s4,kirbyBigHit
+	beq s3,t0,GotPlayerSprite
 		
-PlayerTombo:
+PlayerHitAnim:
 	jal CheckNextSprAnim
 	jal CheckNextSprAnim
 	li t0,6

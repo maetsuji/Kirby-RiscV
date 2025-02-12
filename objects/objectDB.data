@@ -6,6 +6,8 @@
 .eqv airID 6
 .eqv starID 7
 .eqv waddleID 8
+.eqv hotHeadID 9
+.eqv chillyID 10
 
 #.eqv FireSpeedX 4
 #.eqv FireSpeedY 1
@@ -14,7 +16,7 @@ Obj0ID: 	.word 0
 Obj0PosX:	.half 0
 Obj0PosY:	.half 0
 Obj0Dir:	.half 0
-Obj0Status:	.half 0
+Obj0Status:	.half 0 # para inimigos: -1 = morto, 0 = inativo fora da tela, 1 = vivo na tela, 2 = atingido, 3 = sendo puxado
 Obj0LifeFrames:	.half 0
 Obj0Anim:	.half 0
 Obj0PosOG:	.half 0, 0
