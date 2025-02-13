@@ -1,3 +1,8 @@
+.macro DE1(%reg,%salto)
+	li %reg, 0x10008000	# carrega tp
+	bne gp, %reg, %salto	# Na DE1 gp = 0 ! N�o tem segmento .extern
+.end_macro
+
 .data
 
 .include "objects/objectDB.data"
@@ -62,6 +67,9 @@ BGTileCodes:	.word 0		# armazena 4 (bytes) codigos de tiles para que o fundo sej
 LastKey: 	.word 0		# valor da ultima tecla pressionada
 PlayerLastDir:	.word 1		# valor 0 ou 1 baseado na ultima tecla "a" ou "d" apertada, inicia como 1 = "d"
 
+MoveKeys:	.byte 0, 0, 0, 0 # W, A, S, D
+OtherKeys:	.byte 0, 0, 0, 0 # E, Space, -, -
+
 LastGlblTime:	.word 0		# valor completo da ecall 30, que sempre sera comparado e atualizado para contar os frames
 FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usado como outros contadores (1 seg = rem 50; 0.5 seg = rem 25; etc.)
 .eqv FPS 50
@@ -106,9 +114,11 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
 .include "collision/collisionTiles.data"
 
-.include "includes/musicKirby.s"
-
 .text
+	j StartGame
+
+.include "includes/keyCheck.s"
+.include "includes/musicKirby.s"
 	
 StartGame:
 	li t0,0xff200604	# endereco que define qual frame esta sendo apresentado
@@ -168,7 +178,7 @@ Main:
 	li a2,100
 	li a3,320
 	li a4,20
-	jal FillPrint
+	#jal FillPrint
 
 	j Main
 
@@ -273,39 +283,39 @@ FimClock:
 
 	lhu a0,PlayerAnimState
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall	
+	#ecall	
 
 	lhu a0,PlayerAnimTransit
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall		
+	#ecall		
 
 	lhu a0,PlayerPowState
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall			
+	#ecall			
 	
 	lhu a0,PlayerAnim
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall		
+	#ecall		
 
 	la a0,endl
 	li a7,4
-	ecall		
+	#ecall		
 	
 	lw ra,0(sp)
 	lw s0,4(sp)
@@ -1804,59 +1814,6 @@ ChangeFrame:
 	ret
 
 #----------
-KeyPress:
-	li t0,0xFF200000		# carrega o endereco de controle do KDMMIO
-	lw t2,0(t0)			# Le bit de Controle Teclado
-	andi t2,t2,0x0001		# mascara o bit menos significativo
-	lw t1,4(t0)  			# le o valor da tecla
-	
-	bne t2,zero,ContinueKP	
-	mv t1,zero			# se nenhuma tecla esta sendo apertada salva 0 como a tecla atual
-ContinueKP:
-	
-	sw t1,LastKey,t0		# atualiza a ultima tecla pressionada
-	
-	lw s0,PlayerLock
-	bne s0,zero,LockedPlayer
-
-	li t0,'d'
-	beq t0,t1,DirectionKey
-	li t0,'a'
-	beq t0,t1,DirectionKey
-	j SpecialKeys
-DirectionKey:
-	li t0,'a'	
-	slt t2,t0,t1			# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1
-	sw t2,PlayerLastDir,t0		# serve para as animacoes
-LockedPlayer:
-
-SpecialKeys:
-
-	li t0,'p'
-  	beq t1,t0,EndGame
-  	
-  	li t0,'1'
-  	beq t1,t0,SetPower0
-  	
-  	li t0,'2'
-  	beq t1,t0,SetPower1
-  	
-  	li t0,'3'
-  	beq t1,t0,SetPower2
-  	
-  	li t0,'4'
-  	beq t1,t0,SetPower3
-  	
-  	li t0,'5'
-  	beq t1,t0,SetPower4
-  	
-  	li t0,'6'
-  	beq t1,t0,SetPower5
-
-FimKeyPress:  	
-  	ret
-  	
-#----------
 EndGame:
 	li a7,10
 	#ecall				# metodo temporario de finalizacao do jogo
@@ -1864,32 +1821,32 @@ EndGame:
 #----------
 SetPower0:
 	sw zero,PlayerPowState,t1
-	j FimKeyPress
+	#j FimKeyPress
 
 SetPower1:
 	li t0,1
 	sw t0,PlayerPowState,t1
-	j FimKeyPress
+	#j FimKeyPress
 
 SetPower2:
 	li t0,2
 	sw t0,PlayerPowState,t1
-	j FimKeyPress
+	#j FimKeyPress
 	
 SetPower3:
 	li t0,3
 	sw t0,PlayerPowState,t1
-	j FimKeyPress
+	#j FimKeyPress
 	
 SetPower4:
 	li t0,4
 	sw t0,PlayerPowState,t1
-	j FimKeyPress
+	#j FimKeyPress
 	
 SetPower5:
 	li t0,5
 	sw t0,PlayerPowState,t1
-	j FimKeyPress
+	#j FimKeyPress
 
 #----------
 PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
@@ -1928,8 +1885,17 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	li t0,11
 	beq s6,t0,EndAttackStar
 	
+	DE1(t0,DE1CheckAtt)	
+
 	li t0,'e'
-	beq s0,t0,AttackCheck
+	beq s0,t0,AttackCheck		# se velocidade for positiva e 'd' esta apertado nao ha porque desacelerar
+	j EndDE1CheckAtt
+	
+DE1CheckAtt:
+	la t0,OtherKeys
+	lbu t1,0(t0)
+	bnez t1,AttackCheck
+EndDE1CheckAtt:
 	
 	li t0,1
 	beq s6,t0,KeepAttackEat
@@ -2048,8 +2014,19 @@ SetSlowDeaccX:
 SlowLeftToRight:
 	bgt s4,zero,SlowRightToLeft	# se velocidade for positiva ou 0 vai para o proximo slow
 	bne s9,zero,LockedL
+
+	DE1(t0,DE1CheckLeft)	
+
 	li t0,'a'
 	beq s0,t0,MoveLeft		# se velocidade for negativa e 'a' esta apertado nao ha porque desacelerar
+	j EndDE1CheckL
+	
+DE1CheckLeft:
+	la t0,MoveKeys
+	lbu t1,1(t0) # a
+	bnez t1,MoveLeft
+EndDE1CheckL:
+
 	beq s4,zero,SlowRightToLeft	# se velocidade for zero ainda precisa conferir se 'd' esta sendo apertado
 LockedL:  # mesmo quando travado precisa desacelerar
 	
@@ -2060,8 +2037,20 @@ LockedL:  # mesmo quando travado precisa desacelerar
 	
 SlowRightToLeft:
 	bne s9,zero,LockedR
+	
+	DE1(t0,DE1CheckRight)	
+
 	li t0,'d'
 	beq s0,t0,MoveRight		# se velocidade for positiva e 'd' esta apertado nao ha porque desacelerar
+	j EndDE1CheckR
+	
+DE1CheckRight:
+	la t0,MoveKeys
+	lbu t1,3(t0)
+	bnez t1,MoveRight
+EndDE1CheckR:
+	
+	
 	beq s4,zero,DoneHorizontalMv	# se a velocidade for zero nesse ponto nao ha porque desacelerar o jogador
 LockedR:  # mesmo quando travado precisa desacelerar
 	
@@ -2112,11 +2101,26 @@ NotFlying:
 	beq s6,t0,CheckStartFly
 ReturnCheckStFly:
 	
+	DE1(t0,DE1CheckUp)	
+
 	li t0,'w'
 	beq s0,t0,MoveFly
 	
 	li t0,' '			
 	beq s0,t0,MoveJump		# pulo unico
+	
+	j EndDE1CheckUp
+	
+DE1CheckUp:
+	la t0,MoveKeys
+	lbu t1,0(t0) # w
+	bnez t1,MoveFly
+	
+	lbu t1,5(t0) # espaco
+	bnez t1,MoveJump
+EndDE1CheckUp:
+	
+	
 LockedJump:
 
 	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo
