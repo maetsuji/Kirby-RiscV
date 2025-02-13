@@ -5,6 +5,10 @@
 
 BitmapFrame:	.word 0xff000000
 
+StageID:	.half 0
+Completion:	.half 0
+ScreenTransit:	.word 0
+
 MapaPos:	.half 0, 0
 
 OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal que modificam a posicao do mapa 
@@ -21,8 +25,8 @@ PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y,
 PlayerGndState:	.half 0		# 0 = jogador no ar, 1 = jogador no chao
 PlayerAnimState:.half 0		
 # 0 = vazio,  1 = atacando, 2 = -, 3 = -, 4 = atingido com ar, 5 = atingido
-# 6 = transicao inicio eat, 7 = transicao cancelar eat, 8 = abaixar/transicao engolir, 9 = transicao inflar, 10 = transicao soltar ar, 11 = transicao soltar item
-# 2 = cheio de ar
+# 6 = transicao inicio eat, 7 = transicao cancelar eat, 8 = abaixar/transicao engolir, 9 = transicao inflar, 10 = transicao soltar ar, 11 = transicao soltar item, 12 = transicao engolir
+# 13 = cheio de ar
 PlayerPowState:	.word 0		# 0 = vazio sem poder, 1 = fogo, 2 = gelo, 3 = inimigo simples na boca, 4 = inimigo fogo na boca, 5 = inimigo gelo na boca
 PlayerAnim:	.half 0
 PlayerOldAnim:	.half 0
@@ -62,6 +66,12 @@ LastGlblTime:	.word 0		# valor completo da ecall 30, que sempre sera comparado e
 FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usado como outros contadores (1 seg = rem 50; 0.5 seg = rem 25; etc.)
 .eqv FPS 50
 
+MusicStartAdd:	.word 0
+MusicAtual:	.word 0
+LenMusAtual:	.word 0
+NoteEndTime: 	.word 0
+NoteCounter: 	.word 0
+
 ObjAtual:	.word 0
 .eqv objQuant 10
 .eqv objSize 20
@@ -74,16 +84,15 @@ tempPos:	.word 0
 
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
-.include "sprites/Ataque1.data"
-.include "sprites/chao.data"
-.include "sprites/grama.data"
-.include "sprites/plataforma1.data"
-.include "sprites/plataforma2.data"
-.include "sprites/plataforma3.data"
-.include "sprites/blocoExemp.data"
-.include "sprites/mapa40x30.data"
-.include "sprites/mapa30x30.data"
-.include "sprites/tempMenu.data"
+.include "maps/chao.data"
+.include "maps/grama.data"
+.include "maps/plataforma1.data"
+.include "maps/plataforma2.data"
+.include "maps/plataforma3.data"
+.include "maps/blocoExemp.data"
+.include "maps/mapa40x30.data"
+.include "maps/mapa30x30.data"
+.include "maps/tempMenu.data"
 
 .include "kirby/kirbyMain.data" 
 .include "kirby/kirbyMain2.data"
@@ -97,9 +106,11 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
 .include "collision/collisionTiles.data"
 
+.include "includes/musicKirby.s"
 
 .text
 	
+StartGame:
 	li t0,0xff200604	# endereco que define qual frame esta sendo apresentado
 	li t1,1
 	#sw t1,0(t0)		# para visualizar o frame 1
@@ -109,18 +120,10 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 				
 #########################################################################################################################################
 # as seguintes funcoes precisam ser chamadas antes do KeyPress, ja que ele atualiza o offset e a posicao do jogador e tornaria elas iguais aos valores antigos
-
-	jal PrintMapa		# imprime o mapa na inicializacao
 	
 	la t0,kirbyIdle0
 	la t1,PlayerSprite
 	sw t0,0(t1)
-	
-	lw a0,PlayerSprite
-	lw a1,PlayerPosX
-	lw a3,PlayerLastDir
-	lw a4,PlayerPowState
-	jal Print		# imprime o jogador na inicializacao
 	
 	#li a7,30
 	#ecall
@@ -128,19 +131,19 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock
 	#ebreak
 	
-	jal StartEnemies
+	la t0,Notas1			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
 	
-	la a0,tempMenu
-	li a1,264
-	jal SimplePrint
+	lw t0,Duracao1
+	sw t0,LenMusAtual,t1
 	
-	la a0,collisionRender
-	mv a1,zero
-	jal SimplePrint
+	jal StartEnemies	
+
 Main:
-	jal Clock
+	jal Clock # MusicLoop acontece aqui
 	
-	jal ChangeFrame 	# incompleto
+	jal ChangeFrame
 	
 	jal KeyPress		# confere teclas apertadas, atualizando posicao do jogador e offset
 	
@@ -152,6 +155,28 @@ Main:
 
 	jal PrintMapa		# imprime o mapa usando o offset
 
+	jal DrawPlayer
+	
+	jal DrawObjects
+	
+	jal DrawMenu
+	
+	jal ShowCollision
+
+	mv a0,zero
+	li a1,0
+	li a2,100
+	li a3,320
+	li a4,20
+	jal FillPrint
+
+	j Main
+
+#########################################################################################################################################
+DrawPlayer:
+	addi sp,sp,-4
+	sw ra,0(sp)
+	
 	lw a0,PlayerSprite
 	lw a1,PlayerPosX
 	lw a3,PlayerLastDir
@@ -161,6 +186,7 @@ Main:
 	beq t0,zero,NoIFrames
 	li t1,100
 	bge t0,t1,NoIFrames
+	sw zero,PlayerLock,t2
 	andi t0,t0,15
 	li t1,8
 	bge t0,t1,NoIFrames
@@ -168,29 +194,61 @@ Main:
 NoIFrames:
 	jal Print		# imprime o jogador em sua nova posicao
 	
-	jal DrawObjects
+	lw ra,0(sp)
+	addi sp,sp,4
 	
+	ret
+
+#----------
+DrawMenu:
+	addi sp,sp,-4
+	sw ra,0(sp)
+
 	la a0,tempMenu
 	li a1,264
 	jal SimplePrint # DrawMenu
+
+	lw ra,0(sp)
+	addi sp,sp,4
 	
+	ret
+
+#----------
+ShowCollision:
+	addi sp,sp,-4
+	sw ra,0(sp)
+
+	la a0,Obj0ID
+	jal UpdateCollision
+
 	la a0,collisionRender
 	mv a1,zero
 	jal SimplePrint # ShowCollisionMap
+	
+	lw ra,0(sp)
+	addi sp,sp,4
 
-	j Main
+	ret
 
-#########################################################################################################################################
+#----------
 Clock: 
+	addi sp,sp,-20
+	sw ra,0(sp)
+	sw s0,4(sp)
+	sw s1,8(sp)
+	sw s2,12(sp)
+	sw s3,16(sp)
+
+ClockLoop:
 	#li a7,30
 	#ecall			# salva o novo valor do tempo global
 	csrr a0,3073
 	mv s0,a0
 	
-	lw t0,LastGlblTime
-	sub t0,a0,t0		# subtrai o novo tempo global pelo ultimo valor salvo, para definir quantos milissegundos passaram desde o ultimo frame
+	lw s1,LastGlblTime
+	sub s2,s0,s1		# subtrai o novo tempo global pelo ultimo valor salvo, para definir quantos milissegundos passaram desde o ultimo frame
 	
-	mv a0,t0
+	mv a0,s2
 	li a7,1
 	#ecall
 	
@@ -198,53 +256,63 @@ Clock:
 	li a7,4
 	#ecall			# imprime a diferenca de milissegundos (apenas por debug)
 	
-	li t1,20		# a cada 20 ms o frame avanca em 1, o que equivale a 50 fps
-	blt t0,t1,Clock		# enquanto nao avancar o frame o codigo fica nesse loop
+	mv a0,s0 # novo valor de tempo global e enviado para a funcao de musica
+	jal MusicLoop
+	
+	li t0,20		# a cada 20 ms o frame avanca em 1, o que equivale a 50 fps
+	blt s2,t0,ClockLoop	# enquanto nao avancar o frame o codigo fica nesse loop
 	sw s0,LastGlblTime,t0	# atualiza o novo valor de tempo global
 	
-	lw s1,FrameCount
-	addi s1,s1,1
-	sw s1,FrameCount,t0 	# avanca o contador de frames
+	lw s3,FrameCount
+	addi s3,s3,1
+	sw s3,FrameCount,t0 	# avanca o contador de frames
 		
 FimClock:
 
 	# debugs
 
-	lhu a0,LastKey
+	lhu a0,PlayerAnimState
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall	
+	ecall	
 
 	lhu a0,PlayerAnimTransit
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall		
+	ecall		
 
 	lhu a0,PlayerPowState
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall			
+	ecall			
 	
 	lhu a0,PlayerAnim
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall		
+	ecall		
 
 	la a0,endl
 	li a7,4
-	#ecall			
+	ecall		
+	
+	lw ra,0(sp)
+	lw s0,4(sp)
+	lw s1,8(sp)
+	lw s2,12(sp)
+	lw s3,16(sp)
+	addi sp,sp,20	
 
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
 
@@ -253,12 +321,37 @@ StartEnemies:
 	addi sp,sp,-4
 	sw ra,0(sp)
 
+	li a2,1 # PosY
+	slli a2,a2,16
+	addi a2,a2,2 # PosX
+	slli a2,a2,4
 	li a0,waddleID # waddle dee
 	li a1,1
 	li a2,0x00100020
 	mv a3,zero
 	mv a4,zero
 	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,6 # PosY
+	slli a2,a2,16
+	addi a2,a2,8 # PosX
+	slli a2,a2,4
+	li a0,hotHeadID # hot head
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,10 # PosY
+	slli a2,a2,16
+	addi a2,a2,3 # PosX
+	slli a2,a2,4
+	li a2,0x00a00030
+	li a0,chillyID # chilly
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
 	
 	lw ra,0(sp)
 	addi sp,sp,4
@@ -268,19 +361,27 @@ StartEnemies:
 #----------	
 CheckScreenBounds: # a0 = endereco do objeto; a1 = 1 para despawnar, 0 para ativar/desativar
 	# chamado no DrawObjects
-	addi sp,sp,-12
+	addi sp,sp,-20
 	sw ra,0(sp)
 	sw s0,4(sp)
 	sw s1,8(sp)
+	sw s2,12(sp)
+	sw s3,16(sp)
 
 	lh s0,4(a0) # posX
 	lh s1,6(a0) # posY
+	
+	lh s2,16(a0) # ogPosX
+	lh s3,18(a0) # ogPosY
 	
 	lhu t0,OffsetX
 	lhu t1,OffsetY
 	
 	sub s0,s0,t0
 	sub s1,s1,t1
+	
+	sub s2,s2,t0
+	sub s3,s3,t1
 	
 	li t0,-16
 	blt s0,t0,OutOfBounds #LeftOOB
@@ -291,39 +392,57 @@ CheckScreenBounds: # a0 = endereco do objeto; a1 = 1 para despawnar, 0 para ativ
 	blt s1,t0,OutOfBounds #TopOOB
 	li t0,240 
 	bgt s1,t0,OutOfBounds #BottomOOB
-	
+
 	j EndCheckbounds
 	
 OutOfBounds:
-	beq a1,zero,DeactivateObj
+	bne a1,zero,DespawnObject
 	
-	# activate object:
-	li t0,6
-	lw t1,0(a0)
-	ble t1,t0,DespawnObject # objetos nao precisam ter o status atualizado, inimigos nunca despawnam
+	bne s0,s2,DeactivateObject 
+	bne s1,s3,DeactivateObject # se posicao atual nao for igual a original skipa a ativacao (deve ser setada pelo DeactivateObj)
 	
+	# ativa objeto se sua posicao for igual a original:
 	lh t0,10(a0) # Status
-	bne t0,zero,EndCheckbounds
+	bne t0,zero,DeactivateObject # status precisa estar em 0 (saiu da tela)
+
+	li t0,-16
+	blt s2,t0,ogOutOfBounds #LeftOOB
+	li t0,248 # old: 304
+	bgt s2,t0,ogOutOfBounds #RightOOB
+	
+	li t0,-16
+	blt s3,t0,ogOutOfBounds #TopOOB
+	li t0,240 
+	bgt s3,t0,ogOutOfBounds #BottomOOB
+	
+	j EndCheckbounds
+	
+ogOutOfBounds:
 	li t0,1
-	sh t0,10(a0) # atualiza status para 1 se for inimigo e se status for 0 (saiu da tela), se for -1 e porque o inimigo morreu e precisa sair da tela para voltar para 0
+	sh t0,10(a0) # atualiza status para 1 se o inimigo foi desativado e saiu da tela (volta a se mover ao entrar na tela, quando status = 1)
+	j EndCheckbounds
+	
+DeactivateObject:
+	# desativa objeto se sua posicao for diferente da original:
+	sh zero,10(a0) # atualiza status para 0
+	sh zero,12(a0) # reinicia LifeFrames para 0
+	lw t0,16(a0) # carrega posicao original do objeto
+	sw t0,4(a0) # atualiza posicao atual do objeto para a original
+	
 	j EndCheckbounds
 	
 DespawnObject:
 	sw zero,0(a0)
 	j EndCheckbounds
 	
-DeactivateObj:
-	sh zero,10(a0) # atualiza status para 0
-	sh zero,12(a0) # reinicia LifeFrames para 0
-	lw t0,16(a0) # carrega posicao original do objeto
-	sw t0,4(a0) # atualiza posicao atual do objeto para a original
-	
 EndCheckbounds:
 	
 	lw ra,0(sp)
 	lw s0,4(sp)
 	lw s1,8(sp)
-	addi sp,sp,12
+	lw s2,12(sp)
+	lw s3,16(sp)
+	addi sp,sp,20
 
 	ret
 
@@ -384,7 +503,11 @@ NewInstance:
 	li t0,starID
 	beq a0,t0,BuildStar
 	li t0,waddleID
-	beq a0,t0,BuildWaddleDee
+	beq a0,t0,BuildCommonEnemy
+	li t0,hotHeadID
+	beq a0,t0,BuildCommonEnemy
+	li t0,chillyID
+	beq a0,t0,BuildCommonEnemy
 	
 BuildDust:
 	li t0,12
@@ -580,9 +703,11 @@ BuildStarRight:
 	
 	j BuildNextObj
 	
-BuildWaddleDee:
+BuildCommonEnemy:
 	li t0,1
-	sh t0,12(s0)
+	sh t0,10(s0) # status
+	
+	sh t0,12(s0) # lifeFrames
 	
 	sw a2,4(s0)
 	
@@ -645,7 +770,7 @@ SkipCheckBounds:
 	lhu s6,8(s0) # Dir
 	lh s7,10(s0) # Status
 	lhu s8,12(s0) # LifeFrames
-	lhu s9,14(s0) # Anim
+	lhu s9,14(s0) # Anim/Assist
 	### lw s10,16(s0)
 	
 	li t0,dustID
@@ -662,6 +787,10 @@ SkipCheckBounds:
 	beq s3,t0,DrawStar
 	li t0,waddleID
 	beq s3,t0,DrawWaddleDee
+	li t0,hotHeadID
+	beq s3,t0,DrawHotHead
+	li t0,chillyID
+	beq s3,t0,DrawChilly
 
 	j DrawNextObj
 
@@ -865,8 +994,7 @@ DrawStarRight:
 	
 	
 DrawWaddleDee:
-	li t0,-1
-	beq s7,t0,DrawNextObj # se estiver com status -1 = morto, 0 = desativado (fora da tela),  1 = ativado, 2 = atingido, 3 = sendo puxado
+	ble s7,zero,DrawNextObj # se estiver com status -1 = morto, 0 = desativado (fora da tela),  1 = ativado, 2 = atingido, 3 = sendo puxado
 	
 	li t0,3
 	beq s7,t0,PullingWaddleDee
@@ -907,7 +1035,7 @@ GotWaddleDeeDir:
 	sh a3,8(s0) # atualiza Dir
 	
 	mv a0,s0 # endereco base do objeto
-	jal CollisionUpdate # # # # #
+	jal UpdateCollision # # # # #
 	
 	mv a0,s0
 	jal EnemyCollisionCheck # # # # #
@@ -965,18 +1093,32 @@ GotWaddleDeathPos:
 	j DrawNextObj
 	
 PullingWaddleDee:
+	addi s9,s9,1
+	sh s9,14(s0)
 	
 	li t0,1
-	sh t0,PlayerAnimState,t1 # manualmente mantem a naimacao do jogador como a de puxando
+	sh t0,PlayerAnimState,t1 # manualmente mantem a animacao do jogador como a de puxando
 	
-	lh t0,PlayerLastDir
-	li t2,-2
+	mv t2,zero
+	li t1,2
+	blt s9,t1,LowPullXWaddle
+	lh t0,PlayerLastDir	
+	li t2,-1
 	bne t0,zero,PullingWaddleToLeft
-	li t2,2
+	li t2,1
 PullingWaddleToLeft:
+	li t0,2
+	li t1,10
+	blt s9,t1,LowPullXWaddle
+	mul t2,t2,t0
+LowPullXWaddle:
 	
 	lh t0,PlayerPosY
-	addi t0,t0,-2
+	addi t0,t0,-1
+	li t1,6
+	blt s9,t1,LowPullYWaddle
+	addi t0,t0,-1
+LowPullYWaddle:
 	sub t3,t0,s5 # player Y - waddle dee Y = velocidade de subida/descida
 	
 	li t1,-2
@@ -999,6 +1141,15 @@ GotPullWaddleSpY:
 	sh s4,4(s0) # atualiza PosX
 	sh s5,6(s0) # atualiza PosY
 	
+	mv a0,s0 # endereco base do objeto
+	jal UpdateCollision # # # # #
+	
+	mv a0,s0
+	jal EnemyCollisionCheck # # # # #
+	
+	lh s4,4(s0) # PosX # atualiza posicao apos colisoes
+	lh s5,6(s0) # PosY
+	
 	la a0,waddleDee1
 	
 	j GotWaddleDeeSprt
@@ -1017,6 +1168,359 @@ GotWaddleDeeSprt:
 	mv a4,zero
 	j DrawObjReady
 	
+# # # # # # # #	# # # # # # # # # # # # # # # # # 
+DrawHotHead: ### TODO
+	ble s7,zero,DrawNextObj # se estiver com status -1 = morto, 0 = desativado (fora da tela),  1 = ativado, 2 = atingido, 3 = sendo puxado
+	
+	li t0,3
+	beq s7,t0,PullingHotHead
+	
+	beq s9,zero,SkipSubExtraHotHead # tempo
+	addi s9,s9,-1
+	sh s9,14(s0)
+SkipSubExtraHotHead:
+	
+	li t0,2
+	beq s7,t0,HotHeadDeath
+	
+	mv t2,zero
+
+	lh t0,PlayerPosX
+	li t1,-1
+	andi t3,s8,1
+	add t1,t1,t3 # basicamente divide por 2 a velocidade horizontal
+	mv a3,zero
+	blt t0,s4,GotHotHeadDir # se X do jogador for menor que X do inimigo, o jogador esta para a esquerda dele
+	li a3,1 # virado para a direita
+	mv t1,zero
+	beq t0,s4,GotHotHeadDir
+	li t1,1
+	andi t3,s8,1
+	sub t1,t1,t3 # basicamente divide por 2 a velocidade horizontal
+GotHotHeadDir:
+
+	li t2,2 	# # # # # "queda" do inimigo, se houver chao ela e cancelada
+	andi t0,s8,1 # lifeFrames
+	sub t2,t2,t0 	# reduz a velocidade de queda 
+	
+	add s4,s4,t1
+	add s5,s5,t2
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	sh a3,8(s0) # atualiza Dir
+	
+	mv a0,s0 # endereco base do objeto
+	jal UpdateCollision # # # # #
+	
+	mv a0,s0
+	jal EnemyCollisionCheck # # # # #
+	
+	lh s4,4(s0) # PosX # atualiza posicao apos colisoes
+	lh s5,6(s0) # PosY
+	
+	li t0,2
+	bne s7,t0,NotHotHeadDeath 
+	# se o valor da animacao for 2 o hot head esta morrendo 
+HotHeadDeath:
+	la a0,hotHeadHit
+	
+	li t0,13
+	li t1,1
+	li t2,-2
+	beq s9,t0,GotHotHeadDeathPos
+	li t0,10
+	li t1,-2
+	li t2,2
+	beq s9,t0,GotHotHeadDeathPos
+	li t0,8
+	li t1,1
+	li t2,-2
+	beq s9,t0,GotHotHeadDeathPos
+	li t0,5
+	li t1,1
+	li t2,1
+	beq s9,t0,GotHotHeadDeathPos
+	li t0,2
+	li t1,-1
+	li t2,-1
+	beq s9,t0,GotHotHeadDeathPos
+	mv t1,zero
+	mv t2,zero
+	
+GotHotHeadDeathPos:
+	add s5,s5,t2
+	add s4,s4,t1
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	
+	bne s9,zero,GotHotHeadSprt # timer de 15 frames da animacao de morte e iniciado no EnemyHit
+	# ao terminar o timer:
+	
+	li t0,-1
+	sh t0,10(s0) # atualiza status para -1 (morreu e precisa sair da tela para virar 0 e ser reativado)
+	sh zero,12(s0) # reinicia LifeFrames para 0
+	lw t0,16(s0) # carrega posicao original do objeto
+	sw t0,4(s0) # atualiza posicao atual do objeto para a original
+	
+	### TODO jal build EnemyDeath
+
+	j DrawNextObj
+	
+PullingHotHead:
+	addi s9,s9,1
+	sh s9,14(s0)
+	
+	li t0,1
+	sh t0,PlayerAnimState,t1 # manualmente mantem a animacao do jogador como a de puxando
+	
+	mv t2,zero
+	li t1,2
+	blt s9,t1,LowPullXHotHead
+	lh t0,PlayerLastDir	
+	li t2,-1
+	bne t0,zero,PullingHotHeadToLeft
+	li t2,1
+PullingHotHeadToLeft:
+	li t0,2
+	li t1,10
+	blt s9,t1,LowPullXHotHead
+	mul t2,t2,t0
+LowPullXHotHead:
+	
+	lh t0,PlayerPosY
+	addi t0,t0,-1
+	li t1,6
+	blt s9,t1,LowPullYHotHead
+	addi t0,t0,-1
+LowPullYHotHead:
+	sub t3,t0,s5 # player Y - hot head Y = velocidade de subida/descida
+	
+	li t1,-2
+	blt t3,t1,SetPullRiseHotHead
+	
+	li t1,2
+	bgt t3,t1,SetPullFallHotHead
+	j GotPullHotHeadSpY
+	
+SetPullRiseHotHead:
+	li t3,-2
+	j GotPullHotHeadSpY
+SetPullFallHotHead:
+	li t3,2
+GotPullHotHeadSpY:
+
+	add s4,s4,t2
+	add s5,s5,t3
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	
+	mv a0,s0 # endereco base do objeto
+	jal UpdateCollision # # # # #
+	
+	mv a0,s0
+	jal EnemyCollisionCheck # # # # #
+	
+	lh s4,4(s0) # PosX # atualiza posicao apos colisoes
+	lh s5,6(s0) # PosY
+	
+	la a0,hotHead1
+	
+	j GotHotHeadSprt
+	
+NotHotHeadDeath:
+	mv t0,s8 # LifeFrames
+	andi t0,t0,31
+	li t1,16
+	la a0,hotHead0
+	blt t0,t1,GotHotHeadSprt
+	la a0,hotHead1
+GotHotHeadSprt:
+
+	lw a1,4(s0)
+	lh a3,8(s0)
+	mv a4,zero
+	j DrawObjReady
+	
+# # # # # # # #	# # # # # # # # # # # # # # # # # 
+DrawChilly:
+	ble s7,zero,DrawNextObj # se estiver com status -1 = morto, 0 = desativado (fora da tela),  1 = ativado, 2 = atingido, 3 = sendo puxado
+	
+	li t0,3
+	beq s7,t0,PullingChilly
+	
+	beq s9,zero,SkipSubExtraChilly # tempo
+	addi s9,s9,-1
+	sh s9,14(s0)
+SkipSubExtraChilly:
+	
+	li t0,2
+	beq s7,t0,ChillyDeath
+	
+	mv t2,zero
+
+	lh t0,PlayerPosX
+	li t1,-1
+	andi t3,s8,1
+	add t1,t1,t3 # basicamente divide por 2 a velocidade horizontal
+	mv a3,zero
+	blt t0,s4,GotChillyDir # se X do jogador for menor que X do inimigo, o jogador esta para a esquerda dele
+	li a3,1 # virado para a direita
+	mv t1,zero
+	beq t0,s4,GotChillyDir
+	li t1,1
+	andi t3,s8,1
+	sub t1,t1,t3 # basicamente divide por 2 a velocidade horizontal
+GotChillyDir:
+
+	li t2,2 	# # # # # "queda" do inimigo, se houver chao ela e cancelada
+	andi t0,s8,1 # lifeFrames
+	sub t2,t2,t0 	# reduz a velocidade de queda 
+	
+	add s4,s4,t1
+	add s5,s5,t2
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	sh a3,8(s0) # atualiza Dir
+	
+	mv a0,s0 # endereco base do objeto
+	jal UpdateCollision # # # # #
+	
+	mv a0,s0
+	jal EnemyCollisionCheck # # # # #
+	
+	lh s4,4(s0) # PosX # atualiza posicao apos colisoes
+	lh s5,6(s0) # PosY
+	
+	li t0,2
+	bne s7,t0,NotChillyDeath 
+	# se o valor da animacao for 2 o Chilly esta morrendo 
+ChillyDeath:
+	la a0,chillyAtt1
+	
+	li t0,13
+	li t1,1
+	li t2,-2
+	beq s9,t0,GotChillyDeathPos
+	li t0,10
+	li t1,-2
+	li t2,2
+	beq s9,t0,GotChillyDeathPos
+	li t0,8
+	li t1,1
+	li t2,-2
+	beq s9,t0,GotChillyDeathPos
+	li t0,5
+	li t1,1
+	li t2,1
+	beq s9,t0,GotChillyDeathPos
+	li t0,2
+	li t1,-1
+	li t2,-1
+	beq s9,t0,GotChillyDeathPos
+	mv t1,zero
+	mv t2,zero
+	
+GotChillyDeathPos:
+	add s5,s5,t2
+	add s4,s4,t1
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	
+	bne s9,zero,GotChillySprt # timer de 15 frames da animacao de morte e iniciado no EnemyHit
+	# ao terminar o timer:
+	
+	li t0,-1
+	sh t0,10(s0) # atualiza status para -1 (morreu e precisa sair da tela para virar 0 e ser reativado)
+	sh zero,12(s0) # reinicia LifeFrames para 0
+	lw t0,16(s0) # carrega posicao original do objeto
+	sw t0,4(s0) # atualiza posicao atual do objeto para a original
+	
+	### TODO jal build EnemyDeath
+
+	j DrawNextObj
+	
+PullingChilly:
+	addi s9,s9,1
+	sh s9,14(s0)
+	
+	li t0,1
+	sh t0,PlayerAnimState,t1 # manualmente mantem a animacao do jogador como a de puxando
+	
+	mv t2,zero
+	li t1,2
+	blt s9,t1,LowPullXChilly
+	lh t0,PlayerLastDir	
+	li t2,-1
+	bne t0,zero,PullingChillyToLeft
+	li t2,1
+PullingChillyToLeft:
+	li t0,2
+	li t1,10
+	blt s9,t1,LowPullXChilly
+	mul t2,t2,t0
+LowPullXChilly:
+	
+	lh t0,PlayerPosY
+	addi t0,t0,-1
+	li t1,6
+	blt s9,t1,LowPullYChilly
+	addi t0,t0,-1
+LowPullYChilly:
+	sub t3,t0,s5 # player Y - Chilly Y = velocidade de subida/descida
+	
+	li t1,-2
+	blt t3,t1,SetPullRiseChilly
+	
+	li t1,2
+	bgt t3,t1,SetPullFallChilly
+	j GotPullChillySpY
+	
+SetPullRiseChilly:
+	li t3,-2
+	j GotPullChillySpY
+SetPullFallChilly:
+	li t3,2
+GotPullChillySpY:
+
+	add s4,s4,t2
+	add s5,s5,t3
+	
+	sh s4,4(s0) # atualiza PosX
+	sh s5,6(s0) # atualiza PosY
+	
+	mv a0,s0 # endereco base do objeto
+	jal UpdateCollision # # # # #
+	
+	mv a0,s0
+	jal EnemyCollisionCheck # # # # #
+	
+	lh s4,4(s0) # PosX # atualiza posicao apos colisoes
+	lh s5,6(s0) # PosY
+	
+	la a0,chilly1
+	
+	j GotChillySprt
+	
+NotChillyDeath:
+	mv t0,s8 # LifeFrames
+	andi t0,t0,31
+	li t1,16
+	la a0,chilly0
+	blt t0,t1,GotChillySprt
+	la a0,chilly1
+GotChillySprt:
+
+	lw a1,4(s0)
+	lh a3,8(s0)
+	mv a4,zero
+	j DrawObjReady
+
+# # # # # # # #	# # # # # # # # # # # # # # # # # 
 	
 DrawObjReady:
 	jal Print
@@ -1068,9 +1572,6 @@ EnemyCollisionCheck: # a0 = endereco do objeto sendo analisado
 	lh s2,6(s0)	# s2, PosY
 	lh s4,0(s0)	# s4, ID
 	lh s5,10(s0)	# s5, Status
-	
-	li t0,3
-	beq s5,t0,DoneEnemyCollisionCheck
 		
 	la s3,collisionRender
 	addi s3,s3,spriteHeader
@@ -1156,6 +1657,8 @@ EnemyHit:
 	sh t0,10(s0) # atualiza status para 2 (esta morrendo)
 DoneEnemyPlayerColCheck:	
 
+	li t0,3
+	beq s5,t0,DoneEnemyCollisionCheck # se estiver sendo puxado skipa as colisoes com o mapa
 
 SetupEnemyFloor: # cada inimigo realiza uma tentativa de cair, se houver um chao abaixo dele a queda e cancelada
 	mv t0,s3
@@ -1267,6 +1770,22 @@ EnemyEaten:
 
 SetEatenPower:
 	sw t1,PlayerPowState,t0
+	
+	li t0,12 # transicao engolir
+	sh t0,PlayerAnimState,t1	
+	
+	li t0,25 # transicao de engolir dura 25 frames e termina no PlayerAnimation
+	sh t0,PlayerAnimTransit,t1
+	
+	li t0,1 # impede que atire a estrela sem querer
+	sw t0,PlayerLock,t1
+	
+	li t0,-1
+	sh t0,10(s0) # define inimigo como morto
+	
+	lw t0,16(s0)
+	sw t0,4(s0) # reinicia posicao do inimigo
+	
 	j DoneEnemyCollisionCheck
 
 #----------
@@ -1309,8 +1828,8 @@ DirectionKey:
 	li t0,'a'	
 	slt t2,t0,t1			# se estiver virado para a esquerda s0 = 0, para a direita s0 = 1
 	sw t2,PlayerLastDir,t0		# serve para as animacoes
-
 LockedPlayer:
+
 SpecialKeys:
 
 	li t0,'p'
@@ -1391,6 +1910,9 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	add t0,t0,s1
 	sw t0,OldPlayerPos,t1		# atualiza OldPlayerPos
 	
+	li t0,'r'
+	beq s0,t0,CheckDropPower
+	
 	li t0,6
 	beq s6,t0,ContinueStartAttEat
 	
@@ -1414,9 +1936,14 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	
 	j HorizontalMove
 	
+CheckDropPower: ### TODO
+	j HorizontalMove
+	
 AttackCheck:
+	bne s9,zero,LockedStar # confere o locked, principalmente para evitar que o jogador solte o item da boca sem querer
 	li t0,playerMouthIndex # como o item na boca por si so nao muda o AnimState, comparacao precisa ser feita com o PowState
 	bge s10,t0,AttackStar
+LockedStar:
 
 	li t0,0
 	beq s6,t0,StartAttackEat
@@ -1520,11 +2047,11 @@ SetSlowDeaccX:
 	
 SlowLeftToRight:
 	bgt s4,zero,SlowRightToLeft	# se velocidade for positiva ou 0 vai para o proximo slow
-	bne s9,zero,LockedR
+	bne s9,zero,LockedL
 	li t0,'a'
 	beq s0,t0,MoveLeft		# se velocidade for negativa e 'a' esta apertado nao ha porque desacelerar
 	beq s4,zero,SlowRightToLeft	# se velocidade for zero ainda precisa conferir se 'd' esta sendo apertado
-LockedR:  # mesmo quando travado precisa desacelerar
+LockedL:  # mesmo quando travado precisa desacelerar
 	
 	add s4,s4,t1
 	ble s4,zero,DoneHorizontalMv
@@ -1532,11 +2059,11 @@ LockedR:  # mesmo quando travado precisa desacelerar
 	j DoneHorizontalMv
 	
 SlowRightToLeft:
-	bne s9,zero,LockedL
+	bne s9,zero,LockedR
 	li t0,'d'
 	beq s0,t0,MoveRight		# se velocidade for positiva e 'd' esta apertado nao ha porque desacelerar
 	beq s4,zero,DoneHorizontalMv	# se a velocidade for zero nesse ponto nao ha porque desacelerar o jogador
-LockedL:  # mesmo quando travado precisa desacelerar
+LockedR:  # mesmo quando travado precisa desacelerar
 	
 	sub s4,s4,t1
 	bgt s4,zero,DoneHorizontalMv
@@ -1597,9 +2124,11 @@ LockedJump:
 	li t0,8
 	beq s6,t0,EndEatingDown
 BackEatingDown:
-	
+
+	bne s9,zero,LockedD
 	li t0,'s'
 	beq s0,t0,MoveDown
+LockedD:
 	
 	blt s5,zero,DoneVerticalMv	# se o jogador estiver indo para cima o chao nao para ele (impede um snap que estava acontecendo)
 	mv s5,zero 		 	# se o jogador nao estiver no ar ou tiver pulado, entao esta no chao e sua velocidade Y se torna zero
@@ -1740,7 +2269,7 @@ PlayerColCheck:
 	sh s2,PlayerPosY,t0		# armazena temporariamente a nova posicao do jogador, pois o mapa de colisao e feito com base nela, se alguma colisao afeta-la ela sera atualizada ao final
 
 	la a0,PlayerHP # endereco que serve como "ID" do jogador
-	jal CollisionUpdate
+	jal UpdateCollision
 
 	la s3,collisionRender
 	addi s3,s3,spriteHeader
@@ -1828,6 +2357,9 @@ GotKnockback:
 	
 	li t1,125 # tempo do jogador invencivel
 	sw t1,PlayerIFrames,t5
+	
+	li t1,1
+	sw t1,PlayerLock,t5
 	
 	li t1,4 # animacao de hit voando
 	li t5,playerFlyIndex
@@ -2051,6 +2583,15 @@ SkipSubIFrames:
 	sh s8,PlayerAnimState,t0
 NotFlyingHitToFly:
 
+	li t0,12
+	bne s8,t0,DontEndEaten
+	sw zero,PlayerLock,t0 # zera o Lock quando termina a animacao
+	mv s8,zero
+	sh s8,PlayerAnimState,t0  # define animacao como BigIdle, pois como PowState esta maior que 3, o jogador ficara com item na boca
+	
+	j EndDefFireIce 
+DontEndEaten:
+
 	lhu t0,PlayerGndState		# analisa se o jogador esta no chao ou no ar
 	beq t0,zero,DefineAnimVert
 	li t1,1
@@ -2058,12 +2599,16 @@ NotFlyingHitToFly:
 	
 DefTransition: # se alguma transicao esta acontecendo
 
+	li t0,12
+	li s1,23
+	beq s8,t0,DefinedAnim # define animacao de terminar de engolir
+
 	li t0,4
 	li s1,22
-	beq s8,t0,DefinedAnim ### TODO verificacao se esta cheio, com poder, etc
+	beq s8,t0,DefinedAnim # verifica se esta sendo atingido com ar
 
 	li t0,5
-	beq s8,t0,DefHitState ### TODO verificacao se esta cheio, com poder, etc
+	beq s8,t0,DefHitState # verifica se esta sendo atingido vazio
 
 	li t0,8
 	beq s8,t0,DefDownAnims # animacoes de agachar
@@ -2300,9 +2845,22 @@ ContinueAnim:
 	li t0,22
 	la s4,kirbyBigHit
 	beq s3,t0,GotPlayerSprite
+	li t0,23
+	beq s3,t0,PlayerEaten
 		
-PlayerHitAnim:
+PlayerEaten:
 	jal CheckNextSprAnim
+	andi s1,s1,1
+	
+	la s4,kirbyBigDiag
+	li s6,12
+	beq s1,zero,GotPlayerSprite
+	li t0,1
+	la s4,kirbyBigEaten
+	li s6,14
+	beq s1,t0,GotPlayerSprite
+	
+PlayerHitAnim:
 	jal CheckNextSprAnim
 	li t0,6
 	slt t1,s1,t0
@@ -2999,7 +3557,7 @@ FimPrint:
 	ret 
 
 #----------
-CollisionUpdate: # a0 = endereco com o ID do jogador, objeto ou inimigo
+UpdateCollision: # a0 = endereco com o ID do jogador, objeto ou inimigo
 	
 	addi sp,sp,-36
 	sw ra,0(sp)
@@ -3134,7 +3692,7 @@ NextTileRenderCol:
 	addi s3,s3,1			# avanca o contador de tiles
 	
 	li t2,4
-	beq s3,t2,FimTileRenderCol	# se ja foram todos os 4 tiles segue com o CollisionUpdate
+	beq s3,t2,FimTileRenderCol	# se ja foram todos os 4 tiles segue com o UpdateCollision
 	j LoopTileRenderCol
 	
 FimTileRenderCol:
@@ -3160,7 +3718,7 @@ IterateRenderObjCols:
 RenderNextObj:
 	addi s6,s6,1
 	li t0,objQuant
-	beq s6,t0,FimCollisionUpdate
+	beq s6,t0,FimUpdateCollision
 	
 	addi s5,s5,objSize
 	j IterateRenderObjCols
@@ -3171,6 +3729,10 @@ RenderObjAtual:
 	blt s7,t0,RenderNotEnemy
 	lh t0,10(s5) # Status, se for um inimigo e o status dele for 0 significa que esta inativo
 	ble t0,zero,RenderNextObj
+	
+	li t1,3
+	beq t0,t1,RenderNextObj # se objeto estiver sendo puxado ele nao precisa aparecer no mapa de colisao, pois na vez dele que e verificado se ele atingiu o jogador 
+	
 RenderNotEnemy:
 	# s5 = endereco inicial do objeto, s7 = ID
 
@@ -3199,6 +3761,14 @@ RenderNotEnemy:
 	beq s7,t0,GotCollision
 	
 	li t0,waddleID
+	li a5,commonEnemyCol
+	beq s7,t0,GotCollision
+	
+	li t0,hotHeadID
+	li a5,commonEnemyCol
+	beq s7,t0,GotCollision
+	
+	li t0,chillyID
 	li a5,commonEnemyCol
 	beq s7,t0,GotCollision
 
@@ -3314,7 +3884,7 @@ SaveObjRenderCol:
 	
 	j RenderNextObj
 
-FimCollisionUpdate:
+FimUpdateCollision:
 	
 	lw ra,0(sp)
 	lw s0,4(sp)
@@ -3630,3 +4200,39 @@ SimpleLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 
 FimSimplePrint: 
 	ret
+	
+#---------- 
+FillPrint: # a0 = valor da cor, a1 = posicao X de inicio, a2 = posicao Y de inicio, a3 = largura, a4 = altura
+
+	li t0,320
+	mul t1,t0,a2
+	
+	lw t0,BitmapFrame
+	add t0,t0,a1
+	add t0,t0,t1 			# t0, endereco base para salvar o sprite
+	
+	mv t2,zero			# contador de colunas do tile
+	mv t3,zero			# contador de linhas do tile	
+	
+	mv t4,a3 			# guarda a largura do tile
+	mv t5,a4			# guarda a altura do tile
+				
+FillLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
+
+	sb a0,0(t0) 			# desenha no bitmap display
+
+	addi t0,t0,1			# avanca o endereco do bitmap display
+	
+	addi t2,t2,1 			# avanca o contador de colunas
+	blt t2,t4,FillLine 		# enquanto a linha nao estiver completa, continua desenhando ela
+	
+	addi t0,t0,320 			# avanca para a proxima linha do bitmap
+	sub t0,t0,t4 			# subtrai a largura do sprite
+
+	mv t2,zero 			# reseta o contador de colunas
+	addi t3,t3,1 			# avanca o contador de linhas
+	blt t3,t5,FillLine 		# enquanto o contador de linhas for menor que a altura repete a funcao
+
+FimFillPrint: 
+	ret
+

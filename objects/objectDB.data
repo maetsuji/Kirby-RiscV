@@ -12,14 +12,14 @@
 #.eqv FireSpeedX 4
 #.eqv FireSpeedY 1
 
-Obj0ID: 	.word 0
-Obj0PosX:	.half 0
-Obj0PosY:	.half 0
-Obj0Dir:	.half 0
-Obj0Status:	.half 0 # para inimigos: -1 = morto, 0 = inativo fora da tela, 1 = vivo na tela, 2 = atingido, 3 = sendo puxado
-Obj0LifeFrames:	.half 0
-Obj0Anim:	.half 0
-Obj0PosOG:	.half 0, 0
+Obj0ID: 	.word 0 # 0
+Obj0PosX:	.half 0 # 4
+Obj0PosY:	.half 0 # 6
+Obj0Dir:	.half 0 # 8
+Obj0Status:	.half 0 # 10 # para inimigos: -1 = morto, 0 = inativo fora da tela, 1 = vivo (na tela ou fora), 2 = atingido, 3 = sendo puxado
+Obj0LifeFrames:	.half 0 # 12
+Obj0Anim:	.half 0 # 14
+Obj0PosOG:	.half 0, 0 # 16
 
 Obj1ID: 	.word 0
 Obj1PosX:	.half 0
