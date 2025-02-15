@@ -1,29 +1,40 @@
 .macro DE1(%reg,%salto)
 	li %reg, 0x10008000	# carrega tp
-	bne gp, %reg, %salto	# Na DE1 gp = 0 ! N�o tem segmento .extern
+	bne gp, %reg, %salto	# Na DE1 gp = 0 ! Nao tem segmento .extern
 .end_macro
 
 .data
 
 .include "objects/objectDB.data"
-.include "collision/collisionRender.data"
 
 BitmapFrame:	.word 0xff000000
 
 StageID:	.half 0
 Completion:	.half 0
-ScreenTransit:	.word 0
+FadeLines:	.half 0
+FadeTimer:	.half 0
+FadeColor:	.word 0
+
+TitleControls: 	.word 0  # 0 = sair do jogo, 1 = ir para o hub
 
 MapaPos:	.half 0, 0
+MapGridAtual:	.word 0 # mapa40x30, hubGrid, stage1Grid, stage2Grid, stage3Grid, stage4Grid, whispyGrid
+GridSizeX:	.half 0
+GridSizeY:	.half 0
+TileSprtStartAdd:.word 0 # testTiles, hubTiles, hubRTiles, stageTiles
+
+ColGridAtual:	.word 0 # mapa40x30col, hubCol, stage1Col, stage2Col, stage3Col, stage4Col, whispyStageCol
+ColSprtStartAdd:.word 0 # testColSprites, # colSprites (Col0)
+.eqv tileFullSize 268 # 16x16 + 12, header + 256 bytes
 
 OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal que modificam a posicao do mapa 
 OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
-OldOffset:	.word 1		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
+OldOffset:	.word 0		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
 
 PlayerHP:	.word 0		# endereco dessa variavel serve como ID do jogador, usada para comparacao no UpdateCollision
-PlayerPosX: 	.half 32	# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
-PlayerPosY: 	.half 64		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
-OldPlayerPos:	.word 1		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual)  ## nao mais utilizado atualmente
+PlayerPosX: 	.half 0		# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
+PlayerPosY: 	.half 0		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
+OldPlayerPos:	.word 0		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual)  ## nao mais utilizado atualmente
 TempPlayerPos:	.word 0
 PlayerSpeedX:	.half 0		# velocidade completa do jogador (em centenas) no eixo X, dividida por 100 para ser usada como pixels
 PlayerSpeedY:	.half 0		# velocidade completa do jogador (em centenas) no eixo Y, dividida por 100 para ser usada como pixels
@@ -44,6 +55,7 @@ PlayerColSprite:.word 0		# endereco para o sprite atual de colisao
 PlayerLastFrame:.word 0		# contador de frames para comparacao
 PlayerObjDelay: .word 0
 PlayerIFrames:	.word 0
+PlayerDoor:	.word 0
 
 .eqv playerMaxSpX 250
 .eqv playerMaxQuickFallSp 200
@@ -81,7 +93,7 @@ NoteEndTime: 	.word 0
 NoteCounter: 	.word 0
 
 ObjAtual:	.word 0
-.eqv objQuant 10
+.eqv objQuant 20
 .eqv objSize 20
 
 .eqv enemyStartIndex 8
@@ -92,54 +104,87 @@ tempPos:	.word 0
 
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
-.include "maps/chao.data"
-.include "maps/grama.data"
-.include "maps/plataforma1.data"
-.include "maps/plataforma2.data"
-.include "maps/plataforma3.data"
-.include "maps/blocoExemp.data"
-.include "maps/mapa40x30.data"
-.include "maps/mapa30x30.data"
-.include "maps/tempMenu.data"
+.include "archive/oldTests/testMap-Tiles.data"
+.include "archive/oldTests/testColSprites.data"
+
+#.include "maps/tempMenu.data"
+.include "maps/tempTitle.data"
+
+.include "maps/spritesHubRedTiles.data"
+.include "maps/spritesStageTiles.data"
+.include "maps/stageCols.data"
+.include "maps/stageGrids.data"
 
 .include "kirby/kirbyMain.data" 
 .include "kirby/kirbyMain2.data"
 .include "kirby/kirbyPowers.data"
 
-
 .include "objects/objectSprites.data"
 .include "objects/enemySprites.data"
 
 .include "collision/collisionCodes.data"
-
-.include "collision/collisionTiles.data"
+.include "collision/collisionRender.data"
+.include "collision/colSprites.data"
 
 .text
-	j StartGame
+	j LoadTitle
 
 .include "includes/keyCheck.s"
 .include "includes/musicKirby.s"
 	
-StartGame:
-	li t0,0xff200604	# endereco que define qual frame esta sendo apresentado
-	li t1,1
-	#sw t1,0(t0)		# para visualizar o frame 1
-
-	li s11,0x01E00280 	# s11,  grid 640x480
-	#li s11,0x01E001E0 	# s11,  grid 480x480
-				
 #########################################################################################################################################
-# as seguintes funcoes precisam ser chamadas antes do KeyPress, ja que ele atualiza o offset e a posicao do jogador e tornaria elas iguais aos valores antigos
-	
-	la t0,kirbyIdle0
-	la t1,PlayerSprite
-	sw t0,0(t1)
-	
-	#li a7,30
-	#ecall
+StartGame:
 	csrr a0,3073
 	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock
-	#ebreak
+
+	j LoadTitle
+	
+SetNextLevel: # chamado do MoveFly, apos apertar 'w' com o PlayerDoor em 1
+	sw zero,PlayerDoor,t0 # garante que volta a zero, pois unico lugar que tambem seta isso e no comeco da colisao do jogador com o chao
+	
+	lh t0,Completion
+	li t1,1
+	beq t0,t1,LoadBoss # se completion for 1 vai para o boss
+	
+	lh t0,StageID
+	li t1,1
+	beq t0,t1,LoadLevel1
+	li t1,2
+	beq t0,t1,LoadLevel2
+	li t1,3
+	beq t0,t1,LoadLevel3
+	li t1,4
+	beq t0,t1,LoadLevel4
+	
+	li t2,1
+	sh t2,Completion,t1
+	
+	li t1,5
+	beq t0,t1,LoadHub
+	
+	
+LoadTitle:
+	sh zero,StageID,t1
+	
+	j TitleMain
+	
+LoadHub:
+	li t0,1
+	sh t0,StageID,t1
+	
+	# Definicao do mapa
+	li t0,512 # 32
+	li t1,368 # 23
+	sh t0,GridSizeX,t2
+	sh t1,GridSizeY,t2
+	
+	# Posicao inicial do jogador
+	li t0,4
+	li t1,17
+	slli t0,t0,4
+	slli t1,t1,4
+	sh t0,PlayerPosX,t2
+	sh t1,PlayerPosY,t2
 	
 	la t0,Notas1			# define o endereco inicial das notas
 	sw t0,MusicStartAdd,t1
@@ -148,12 +193,320 @@ StartGame:
 	lw t0,Duracao1
 	sw t0,LenMusAtual,t1
 	
-	jal StartEnemies	
+	la t0,hubReducedGrid 		# endereco do grid de tiles atual
+	sw t0,MapGridAtual,t1
+	
+	la t0,hubRTiles 	# endereco inicial dos sprites de tile
+	sw t0,TileSprtStartAdd,t1
+	
+	la t0,hubCol 		# endereco do grid de colisao atual
+	sw t0,ColGridAtual,t1
+	
+	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
+	sw t0,ColSprtStartAdd,t1
+	
+	#jal StartEnemiesTest
+	
+	li t0,32
+	sh t0,FadeTimer,t1
+	li t0,255
+	sw t0,FadeColor,t1
+	
+	j Main
 
+# # # # #
+LoadLevel1:
+	li t0,2
+	sh t0,StageID,t1
+	
+	# Definicao do mapa
+	li t0,272 # 17
+	li t1,368 # 23
+	sh t0,GridSizeX,t2
+	sh t1,GridSizeY,t2
+	
+	# Posicao inicial do jogador
+	li t0,2
+	li t1,12
+	slli t0,t0,4
+	slli t1,t1,4
+	sh t0,PlayerPosX,t2
+	sh t1,PlayerPosY,t2
+	
+	la t0,Notas1			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
+	
+	lw t0,Duracao1
+	sw t0,LenMusAtual,t1
+	
+	la t0,stage1 		# endereco do grid de tiles atual
+	sw t0,MapGridAtual,t1
+	
+	la t0,stageTiles 	# endereco inicial dos sprites de tile
+	sw t0,TileSprtStartAdd,t1
+	
+	la t0,stage1C 		# endereco do grid de colisao atual
+	sw t0,ColGridAtual,t1
+	
+	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
+	sw t0,ColSprtStartAdd,t1
+	
+	#jal StartEnemiesTest
+	
+	li t0,32
+	sh t0,FadeTimer,t1
+	sw zero,FadeColor,t1
+	
+	j Main
+	
+# # # # #
+LoadLevel2:
+	li t0,3
+	sh t0,StageID,t1
+	
+	# Definicao do mapa
+	li t0,1024 # 64 
+	li t1,240 # 15
+	sh t0,GridSizeX,t2
+	sh t1,GridSizeY,t2
+	
+	# Posicao inicial do jogador
+	li t0,4
+	li t1,7
+	slli t0,t0,4
+	slli t1,t1,4
+	sh t0,PlayerPosX,t2
+	sh t1,PlayerPosY,t2
+	
+	la t0,Notas1			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
+	
+	lw t0,Duracao1
+	sw t0,LenMusAtual,t1
+	
+	la t0,stage2 		# endereco do grid de tiles atual
+	sw t0,MapGridAtual,t1
+	
+	la t0,stageTiles	# endereco inicial dos sprites de tile
+	sw t0,TileSprtStartAdd,t1
+	
+	la t0,stage2C 		# endereco do grid de colisao atual
+	sw t0,ColGridAtual,t1
+	
+	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
+	sw t0,ColSprtStartAdd,t1
+	
+	#jal StartEnemiesTest
+	
+	li t0,32
+	sh t0,FadeTimer,t1
+	sw zero,FadeColor,t1
+	
+	j Main
+	
+# # # # #
+LoadLevel3:
+	li t0,4
+	sh t0,StageID,t1
+	
+	# Definicao do mapa
+	li t0,272 # 17 
+	li t1,560 # 35
+	sh t0,GridSizeX,t2
+	sh t1,GridSizeY,t2
+	
+	# Posicao inicial do jogador
+	li t0,7
+	li t1,31
+	slli t0,t0,4
+	slli t1,t1,4
+	sh t0,PlayerPosX,t2
+	sh t1,PlayerPosY,t2
+	
+	la t0,Notas1			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
+	
+	lw t0,Duracao1
+	sw t0,LenMusAtual,t1
+	
+	la t0,stage3 		# endereco do grid de tiles atual
+	sw t0,MapGridAtual,t1
+	
+	la t0,stageTiles	# endereco inicial dos sprites de tile
+	sw t0,TileSprtStartAdd,t1
+	
+	la t0,stage3C 		# endereco do grid de colisao atual
+	sw t0,ColGridAtual,t1
+	
+	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
+	sw t0,ColSprtStartAdd,t1
+	
+	#jal StartEnemiesTest
+	
+	li t0,32
+	sh t0,FadeTimer,t1
+	sw zero,FadeColor,t1
+	
+	j Main
+	
+# # # # #
+LoadLevel4:
+	li t0,5
+	sh t0,StageID,t1
+	
+	# Definicao do mapa
+	li t0,1280 # 80
+	li t1,240 # 15
+	sh t0,GridSizeX,t2
+	sh t1,GridSizeY,t2
+	
+	# Posicao inicial do jogador
+	li t0,3
+	li t1,8
+	slli t0,t0,4
+	slli t1,t1,4
+	sh t0,PlayerPosX,t2
+	sh t1,PlayerPosY,t2
+	
+	la t0,Notas1			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
+	
+	lw t0,Duracao1
+	sw t0,LenMusAtual,t1
+	
+	la t0,stage4 		# endereco do grid de tiles atual
+	sw t0,MapGridAtual,t1
+	
+	la t0,stageTiles	# endereco inicial dos sprites de tile
+	sw t0,TileSprtStartAdd,t1
+	
+	la t0,stage4C 		# endereco do grid de colisao atual
+	sw t0,ColGridAtual,t1
+	
+	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
+	sw t0,ColSprtStartAdd,t1
+	
+	#jal StartEnemiesTest
+	
+	li t0,32
+	sh t0,FadeTimer,t1
+	sw zero,FadeColor,t1
+	
+	j Main
+	
+# # # # #
+LoadBoss:
+	li t0,6
+	sh t0,StageID,t1
+	
+	# Definicao do mapa
+	li t0,272 # 17 
+	li t1,384 # 24
+	sh t0,GridSizeX,t2
+	sh t1,GridSizeY,t2
+	
+	# Posicao inicial do jogador
+	li t0,2
+	li t1,3
+	slli t0,t0,4
+	slli t1,t1,4
+	sh t0,PlayerPosX,t2
+	sh t1,PlayerPosY,t2
+	
+	la t0,Notas1			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
+	
+	lw t0,Duracao1
+	sw t0,LenMusAtual,t1
+	
+	la t0,stageWhispy 		# endereco do grid de tiles atual
+	sw t0,MapGridAtual,t1
+	
+	la t0,stageTiles	# endereco inicial dos sprites de tile
+	sw t0,TileSprtStartAdd,t1
+	
+	la t0,whispyStageCol 		# endereco do grid de colisao atual
+	sw t0,ColGridAtual,t1
+	
+	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
+	sw t0,ColSprtStartAdd,t1
+	
+	li t0,32
+	sh t0,FadeTimer,t1
+	sw zero,FadeColor,t1
+	
+	j Main
+	
+# # # # #
+LoadEnd:
+	li t0,7
+	sh t0,StageID,t1
+	
+	j Main
+
+# # # # #
+LoadTest:
+	li t0,8
+	sh t0,StageID,t1	
+
+	# Definicao do mapa
+	li t0,640 
+	li t1,480
+	sh t0,GridSizeX,t2
+	sh t1,GridSizeY,t2
+	
+	# Posicao inicial do jogador
+	li t0,2
+	li t1,4
+	slli t0,t0,4
+	slli t1,t1,4
+	sh t0,PlayerPosX,t2
+	sh t1,PlayerPosY,t2
+	
+	la t0,Notas1			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
+	
+	lw t0,Duracao1
+	sw t0,LenMusAtual,t1
+	
+	la t0,mapa40x30 		# endereco do grid de tiles atual
+	sw t0,MapGridAtual,t1
+	
+	la t0,vazioTeste			# endereco inicial dos sprites de tile
+	sw t0,TileSprtStartAdd,t1
+	
+	la t0,mapa40x30col 		# endereco do grid de colisao atual
+	sw t0,ColGridAtual,t1
+	
+	la t0,blocoExempCol 		# endereco inicial dos sprites de tile de colisao
+	sw t0,ColSprtStartAdd,t1
+	
+	jal StartEnemiesTest
+	
+	li t0,32
+	sh t0,FadeTimer,t1
+	li t0,255
+	sw t0,FadeColor,t1
+	
+	j Main	
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Main:
+	jal FadeScreen
+
 	jal Clock # MusicLoop acontece aqui
 	
-	jal ChangeFrame
+	jal ChangeFrame # mostra o BitmapFrame atual e o atualiza, para o proximo ser desenhado
+	
+	li t0,16
+	lhu t1,FadeTimer
+	bgt t1,t0,Main # enquanto a primeira parte da transicao acontece mantem a tela do estagio passado
 	
 	jal KeyPress		# confere teclas apertadas, atualizando posicao do jogador e offset
 	
@@ -173,16 +526,100 @@ Main:
 	
 	jal ShowCollision
 
-	mv a0,zero
-	li a1,0
-	li a2,100
-	li a3,320
-	li a4,20
-	#jal FillPrint
-
 	j Main
 
+#======================================================
+TitleMain:
+	jal ChangeFrame # mostra o BitmapFrame atual e o atualiza, para o proximo frame ser desenhado
+
+	jal TitleKeyPress
+	
+	la a0,tempTitle
+	li a1,32
+	jal SimplePrint
+	
+	
+	lw t0,TitleControls
+	li t1,40
+	mul t0,t0,t1
+	
+	li t1,152
+	li t2,140
+	add t2,t2,t0
+	
+	slli a1,t2,16
+	add a1,a1,t1
+	
+	la a0,star0
+	jal SimplePrint
+	
+	j TitleMain
+
 #########################################################################################################################################
+FadeScreen:
+
+	addi sp,sp,-4
+	sw ra,0(sp)
+
+	lhu s0,FadeTimer
+	beqz s0,FimFadeScreen
+	
+	li t0,32
+	bne t0,s0,DontStartFade
+	li s1,256
+	sh s1,FadeLines,t0
+DontStartFade:
+	lh s1,FadeLines
+	
+	andi t0,s0,1
+	bne t0,zero,DoneGetLines
+	
+	li t0,16
+	bgt s0,t0,DivLines # caso especifico para comecar a trocar a transicao
+	
+	li t0,14
+	ble s0,t0,MultLines
+	
+	j DoneGetLines
+	
+DivLines:
+	srli s1,s1,1 # divide as linhas por 2
+	j DoneGetLines
+MultLines:
+	slli s1,s1,1
+	
+DoneGetLines:
+
+	mv s2,zero # contador
+	li s3,320 # Y maximo das linhas (nao incluso)
+	lw s4,FadeColor
+	
+LoopFillLines:
+	mv a0,s4 # cor
+	li a1,0	# PosX
+	mv a2,s2 # PosY
+	li a3,320 # tamanho X
+	li a4,1 # tamanho Y
+	jal FillPrint
+	
+	add s2,s2,s1 # adiciona certa altura para a Y
+	bge s2,s3,FimLoopFillLines
+	
+	j LoopFillLines
+	
+FimLoopFillLines:
+	
+	addi s0,s0,-1
+	sh s0,FadeTimer,t0
+	sh s1,FadeLines,t0
+	
+FimFadeScreen:
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
+
+#----------
 DrawPlayer:
 	addi sp,sp,-4
 	sw ra,0(sp)
@@ -214,7 +651,7 @@ DrawMenu:
 	addi sp,sp,-4
 	sw ra,0(sp)
 
-	la a0,tempMenu
+	#la a0,tempMenu
 	li a1,264
 	jal SimplePrint # DrawMenu
 
@@ -228,7 +665,7 @@ ShowCollision:
 	addi sp,sp,-4
 	sw ra,0(sp)
 
-	la a0,Obj0ID
+	la a0,PlayerHP
 	jal UpdateCollision
 
 	la a0,collisionRender
@@ -266,8 +703,13 @@ ClockLoop:
 	li a7,4
 	#ecall			# imprime a diferenca de milissegundos (apenas por debug)
 	
+	li t0,16
+	lhu t1,FadeTimer
+	bgt t1,t0,SkipMusic
+	
 	mv a0,s0 # novo valor de tempo global e enviado para a funcao de musica
 	jal MusicLoop
+SkipMusic:
 	
 	li t0,20		# a cada 20 ms o frame avanca em 1, o que equivale a 50 fps
 	blt s2,t0,ClockLoop	# enquanto nao avancar o frame o codigo fica nesse loop
@@ -281,41 +723,41 @@ FimClock:
 
 	# debugs
 
-	lhu a0,PlayerAnimState
+	lhu a0,Completion
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall	
+	ecall	
 
 	lhu a0,PlayerAnimTransit
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall		
+	ecall		
 
 	lhu a0,PlayerPowState
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall			
+	ecall			
 	
 	lhu a0,PlayerAnim
 	li a7,1
-	#ecall
+	ecall
 	
 	la a0,endl
 	li a7,4
-	#ecall		
+	ecall		
 
 	la a0,endl
 	li a7,4
-	#ecall		
+	ecall		
 	
 	lw ra,0(sp)
 	lw s0,4(sp)
@@ -327,7 +769,7 @@ FimClock:
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
 
 #----------
-StartEnemies: 
+StartEnemiesTest: 
 	addi sp,sp,-4
 	sw ra,0(sp)
 
@@ -342,7 +784,7 @@ StartEnemies:
 	mv a4,zero
 	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
 	
-	li a2,6 # PosY
+	li a2,7 # PosY
 	slli a2,a2,16
 	addi a2,a2,8 # PosX
 	slli a2,a2,4
@@ -408,38 +850,46 @@ CheckScreenBounds: # a0 = endereco do objeto; a1 = 1 para despawnar, 0 para ativ
 OutOfBounds:
 	bne a1,zero,DespawnObject
 	
-	bne s0,s2,DeactivateObject 
-	bne s1,s3,DeactivateObject # se posicao atual nao for igual a original skipa a ativacao (deve ser setada pelo DeactivateObj)
-	
-	# ativa objeto se sua posicao for igual a original:
-	lh t0,10(a0) # Status
-	bne t0,zero,DeactivateObject # status precisa estar em 0 (saiu da tela)
-
-	li t0,-16
-	blt s2,t0,ogOutOfBounds #LeftOOB
-	li t0,248 # old: 304
-	bgt s2,t0,ogOutOfBounds #RightOOB
-	
-	li t0,-16
-	blt s3,t0,ogOutOfBounds #TopOOB
-	li t0,240 
-	bgt s3,t0,ogOutOfBounds #BottomOOB
+	# se um inimigo sai da tela basta reinicia-lo para a posicao inicial para reativa-lo
+	li t0,1
+	sh t0,10(a0) # atualiza status para 1
+	sh zero,12(a0) # reinicia LifeFrames para 0
+	lw t0,16(a0) # carrega posicao original do objeto
+	sw t0,4(a0) # atualiza posicao atual do objeto para a original
 	
 	j EndCheckbounds
+	
+	
+	### TODO rever, pelo visto status 0 e desnecessario
+	#bne s0,s2,DeactivateObject 
+	#bne s1,s3,DeactivateObject # se posicao atual nao for igual a original skipa a ativacao (deve ser setada pelo DeactivateObj)
+	
+	# ativa objeto se sua posicao for igual a original:
+	#lh t0,10(a0) # Status
+	#bne t0,zero,DeactivateObject # status precisa estar em 0 (saiu da tela)
+
+	#li t0,-16
+	#blt s2,t0,ogOutOfBounds #LeftOOB
+	#li t0,248 # old: 304
+	#bgt s2,t0,ogOutOfBounds #RightOOB
+	
+	#li t0,-16
+	#blt s3,t0,ogOutOfBounds #TopOOB
+	#li t0,240 
+	#bgt s3,t0,ogOutOfBounds #BottomOOB
+	
+	#j EndCheckbounds
 	
 ogOutOfBounds:
 	li t0,1
 	sh t0,10(a0) # atualiza status para 1 se o inimigo foi desativado e saiu da tela (volta a se mover ao entrar na tela, quando status = 1)
 	j EndCheckbounds
 	
-DeactivateObject:
+#DeactivateObject:
 	# desativa objeto se sua posicao for diferente da original:
-	sh zero,10(a0) # atualiza status para 0
-	sh zero,12(a0) # reinicia LifeFrames para 0
-	lw t0,16(a0) # carrega posicao original do objeto
-	sw t0,4(a0) # atualiza posicao atual do objeto para a original
 	
-	j EndCheckbounds
+	
+	#j EndCheckbounds
 	
 DespawnObject:
 	sw zero,0(a0)
@@ -1157,6 +1607,9 @@ GotPullWaddleSpY:
 	mv a0,s0
 	jal EnemyCollisionCheck # # # # #
 	
+	lh s7,10(s0) # Status # atualiza ID
+	ble s7,zero,DrawNextObj # se tiver morrido nao o desenha
+	
 	lh s4,4(s0) # PosX # atualiza posicao apos colisoes
 	lh s5,6(s0) # PosY
 	
@@ -1193,17 +1646,10 @@ SkipSubExtraHotHead:
 	li t0,2
 	beq s7,t0,HotHeadDeath
 	
-	mv t2,zero
-
-	lh t0,PlayerPosX
 	li t1,-1
-	andi t3,s8,1
+	andi t3,s8,1 # s8, lifeFrames
 	add t1,t1,t3 # basicamente divide por 2 a velocidade horizontal
-	mv a3,zero
-	blt t0,s4,GotHotHeadDir # se X do jogador for menor que X do inimigo, o jogador esta para a esquerda dele
-	li a3,1 # virado para a direita
-	mv t1,zero
-	beq t0,s4,GotHotHeadDir
+	beqz s6,GotHotHeadDir
 	li t1,1
 	andi t3,s8,1
 	sub t1,t1,t3 # basicamente divide por 2 a velocidade horizontal
@@ -1218,7 +1664,6 @@ GotHotHeadDir:
 	
 	sh s4,4(s0) # atualiza PosX
 	sh s5,6(s0) # atualiza PosY
-	sh a3,8(s0) # atualiza Dir
 	
 	mv a0,s0 # endereco base do objeto
 	jal UpdateCollision # # # # #
@@ -1332,6 +1777,9 @@ GotPullHotHeadSpY:
 	
 	mv a0,s0
 	jal EnemyCollisionCheck # # # # #
+	
+	lh s7,10(s0) # Status # atualiza ID
+	ble s7,zero,DrawNextObj # se tiver morrido nao o desenha
 	
 	lh s4,4(s0) # PosX # atualiza posicao apos colisoes
 	lh s5,6(s0) # PosY
@@ -1509,6 +1957,9 @@ GotPullChillySpY:
 	mv a0,s0
 	jal EnemyCollisionCheck # # # # #
 	
+	lh s7,10(s0) # Status # atualiza ID
+	ble s7,zero,DrawNextObj # se tiver morrido nao o desenha
+	
 	lh s4,4(s0) # PosX # atualiza posicao apos colisoes
 	lh s5,6(s0) # PosY
 	
@@ -1527,7 +1978,7 @@ GotChillySprt:
 
 	lw a1,4(s0)
 	lh a3,8(s0)
-	mv a4,zero
+	li a4,2
 	j DrawObjReady
 
 # # # # # # # #	# # # # # # # # # # # # # # # # # 
@@ -1568,7 +2019,7 @@ FimDrawObjects:
 
 #----------
 EnemyCollisionCheck: # a0 = endereco do objeto sendo analisado
-	addi sp,sp,-28
+	addi sp,sp,-36
 	sw ra,0(sp)
 	sw s0,4(sp)
 	sw s1,8(sp)
@@ -1576,12 +2027,16 @@ EnemyCollisionCheck: # a0 = endereco do objeto sendo analisado
 	sw s3,16(sp)
 	sw s4,20(sp)
 	sw s5,24(sp)
+	sw s6,28(sp)
+	sw s7,32(sp)
 	
 	mv s0,a0	# s0, endereco base do inimigo
 	lh s1,4(s0)	# s1, PosX
 	lh s2,6(s0)	# s2, PosY
 	lh s4,0(s0)	# s4, ID
 	lh s5,10(s0)	# s5, Status
+	lh s6,8(s0)	# s6, Dir
+	lh s7,12(s0)	# s7, LifeFrames
 		
 	la s3,collisionRender
 	addi s3,s3,spriteHeader
@@ -1679,7 +2134,24 @@ SetupEnemyFloor: # cada inimigo realiza uma tentativa de cair, se houver um chao
 	li t4,4				# contador de pixels a analisar
 EnemyFloor:
 	lbu t1,0(t0)
-	sb zero,0(t0)
+	
+	lbu t5,32(t0) # linha de pixels abaixo do inimigo
+	beq t5,t2,DontFlipHotHead
+	li t6,hotHeadID
+	bne t6,s4,DontFlipHotHead
+	xori s6,s6,1 # troca a direcao do hot head se ele for cair
+	sh s6,8(s0)
+	
+	### j SetupEnemyCeiling
+	
+	bnez t3,NudgeLeft # se for o primeiro pixel analisado empurra o hot head para a direita
+	jal SnapRight
+	j DontFlipHotHead
+NudgeLeft:
+	jal SnapLeft
+	
+DontFlipHotHead:
+
 	bne t1,t2,EnemyDontSnapUp		# analisa pixels 1, 6, 11 e 16 da ultima linha do inimigo
 	jal SnapUp
 	j EnemyFloor			# repete enquanto colisao acontece
@@ -1752,7 +2224,10 @@ DoneEnemyCollisionCheck:
 	lw s3,16(sp)
 	lw s4,20(sp)
 	lw s5,24(sp)
-	addi sp,sp,28
+	lw s5,24(sp)
+	lw s6,28(sp)
+	lw s7,32(sp)
+	addi sp,sp,36
 	
 	ret
 
@@ -1812,41 +2287,6 @@ ChangeFrame:
 	sw s0,BitmapFrame,t0
 	
 	ret
-
-#----------
-EndGame:
-	li a7,10
-	#ecall				# metodo temporario de finalizacao do jogo
-
-#----------
-SetPower0:
-	sw zero,PlayerPowState,t1
-	#j FimKeyPress
-
-SetPower1:
-	li t0,1
-	sw t0,PlayerPowState,t1
-	#j FimKeyPress
-
-SetPower2:
-	li t0,2
-	sw t0,PlayerPowState,t1
-	#j FimKeyPress
-	
-SetPower3:
-	li t0,3
-	sw t0,PlayerPowState,t1
-	#j FimKeyPress
-	
-SetPower4:
-	li t0,4
-	sw t0,PlayerPowState,t1
-	#j FimKeyPress
-	
-SetPower5:
-	li t0,5
-	sw t0,PlayerPowState,t1
-	#j FimKeyPress
 
 #----------
 PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
@@ -1929,8 +2369,8 @@ StartAttackEat:
 	li t0,1
 	beq s10,t0,AttackEat # se estiver com a habilidade de fogo nao precisa da animacao de StartAttack
 
-	li t0,10
-	sh t0,PlayerAnimTransit,t1
+	li s8,10
+	sh s8,PlayerAnimTransit,t1 ### caso estranho, acho que nem em todos eles pode mudar o registrador s, mas aqui precisa
 	
 ContinueStartAttEat:
 	beq s8,zero,AttackEat
@@ -2191,6 +2631,10 @@ CheckStartFly:
 	j ReturnCheckStFly
 	
 MoveFly:
+	lw t0,PlayerDoor
+	beqz t0,DontSetNextLevel
+	j SetNextLevel
+DontSetNextLevel:
 
 	li t0,playerFlyIndex
 	bge s6,t0,BoostFly # se ja estiver voando continua com a animacao de voo (salva no CheckStartFly)
@@ -2244,17 +2688,15 @@ DontLimitJump:
 	add s2,s2,t1			# adiciona a velocidade vertical em pixels para a posicao do jogador
 
 FimMove:
-	mv t0,s11
-	slli t0,t0,16
-	srli t0,t0,16	
+
+	lh t0,GridSizeX
 	addi t0,t0,-16			# t0, tamanho da linha de pixels - 48 - 16 # old: -16
 	
 	#li t0,304		
 	blt s1,zero,FimPlayerControls
 	bgt s1,t0,FimPlayerControls		# analisa se passou das bordas dos lados
 	
-	mv t0,s11
-	srli t0,t0,16		
+	lh t0,GridSizeY	
 	addi t0,t0,-16			# t0, tamanho da coluna de pixels -16
 	
 	#li t0,224		
@@ -2431,6 +2873,7 @@ PlayerDontSnapLeft:
 	
 SetupPlayerFloor: ### TODO revisar: colisao do player com o chao precisa ser a ultima pois e a unica de mover o jogador de forma que os pixels verificados dele fiquem fora do mapa de colisao
 	sh zero,PlayerGndState,t5	# determina que jogador esta no ar
+	sw zero,PlayerDoor,t5		# determina que jogador nao esta na porta
 	
 	mv t0,s3
 	li t1,480 # 15 linhas do sprite x 32 pixels da renderizacao da colisao
@@ -2444,7 +2887,13 @@ PlayerFloor:
 	bne t5,t2,DontSetGroundSt	# analisa pixels 1, 6, 11 e 16 da primeira linha abaixo do jogador
 	li t6,1
 	sh t6,PlayerGndState,t5		# se algum dos pixels logo abaixo do jogador forem de chao ele passa a estar no estado "no chao"
+	j DontSetDoorSt
 DontSetGroundSt:
+	li t6,doorCol
+	bne t5,t6,DontSetDoorSt		# analisa pixels 1, 6, 11 e 16 da primeira linha abaixo do jogador
+	li t6,1
+	sw t6,PlayerDoor,t5
+DontSetDoorSt:
 	bne t1,t2,PlayerDontSnapUp		# analisa pixels 1, 6, 11 e 16 da ultima linha do jogador
 	jal SnapUp
 	j PlayerFloor			# repete enquanto colisao acontece
@@ -2482,9 +2931,7 @@ FimPlayerControls:
   	
 
 ChangeOffsetX:
-	mv t0,s11
-	slli t0,t0,16
-	srli t0,t0,16			# tamanho X do mapa
+	lh t0,GridSizeX			# tamanho X do mapa
 			
 	addi t0,t0,-140 #old: -168	# pixel mais a direita do mapa que muda o offset
 	bgt s1,t0,MaxOffsetX		# se o jogador estiver no fim da tela, o offset sempre sera o maior possivel
@@ -2505,8 +2952,7 @@ MaxOffsetX:
 	j FimChangeOffsetX
 
 ChangeOffsetY:
-	mv t0,s11
-	srli t0,t0,16			# tamanho Y do mapa
+	lh t0,GridSizeY			# tamanho Y do mapa
 			
 	addi t0,t0,-128			# pixel mais baixo do mapa que muda o offset
 	bgt s2,t0,MaxOffsetY
@@ -2691,6 +3137,11 @@ EndDefFireIce:
 	li t0,10
 	li s1,13 # DefAttackAir
 	beq s8,t0,DefinedAnim
+	
+	#lh t0,FadeTimer # unused, fade e muito especifico para isso funcionar
+	#li t1,16
+	#li s1,24 # DefAnimEnter # tecnicamente so acontece enquanto o o fade esta iniciando
+	#bgt t0,t1,DefinedAnim
 
 DefineAnimHorz:
 	lh t0,PlayerSpeedX
@@ -2851,6 +3302,20 @@ ContinueAnim:
 	beq s3,t0,GotPlayerSprite
 	li t0,23
 	beq s3,t0,PlayerEaten
+	li t0,24 # Unused
+	beq s3,t0,PlayerEnter
+	
+PlayerEnter: # Unused
+	jal CheckNextSprAnim
+	andi s1,s1,1
+	
+	la s4,kirbyEnter0
+	li s6,4
+	beq s1,zero,GotPlayerSprite
+	li t0,1
+	la s4,kirbyEnter1
+	li s6,12
+	beq s1,t0,GotPlayerSprite
 		
 PlayerEaten:
 	jal CheckNextSprAnim
@@ -3581,7 +4046,7 @@ UpdateCollision: # a0 = endereco com o ID do jogador, objeto ou inimigo
 	
 	srli s1,a2,4			# s1, divisao da posicao Y por 16
 	
-	la t0,mapa40x30 #mapaCodesAtual			
+	lw t0,ColGridAtual	
 	lw t1,0(t0)			# t1, tamanho do mapa de tiles
 	mul t2,s1,t1			
 	
@@ -3610,46 +4075,11 @@ UpdateCollision: # a0 = endereco com o ID do jogador, objeto ou inimigo
 LoopTileRenderCol:
 
 	lbu s4,0(s2) 			# s4, codigo do tile atual
-
-	li t3,1				# analise dos codigos de tile
-	beq s4,t3,GetColTile1
-	li t3,2
-	beq s4,t3,GetColTile2
-	li t3,3
-	beq s4,t3,GetColTile3
-	li t3,4
-	beq s4,t3,GetColTile4
-	li t3,5
-	beq s4,t3,GetColTile5
-	li t3,6
-	beq s4,t3,GetColTile6
+	lw a5,ColSprtStartAdd 		# a5, endereco inicial dos sprites de colisao
 	
-GetColTile1:
-	#la a3,grama
-	la a5,emptyCol
-	j GotCollisionTile
-GetColTile2:
-	#la a3,chao
-	la a5,emptyCol
-	j GotCollisionTile
-GetColTile3:
-	#la a3,plataforma1
-	la a5,plataforma1Col
-	j GotCollisionTile
-GetColTile4:
-	#la a3,plataforma2
-	la a5,plataforma2Col
-	j GotCollisionTile
-GetColTile5:
-	#la a3,plataforma3
-	la a5,plataforma3Col
-	j GotCollisionTile
-GetColTile6:
-	#la a3,blocoExemp
-	la a5,blocoExempCol
-	j GotCollisionTile
-
-GotCollisionTile:	# a5, sprite de colisao que sera desenhado
+	li t0,tileFullSize
+	mul t1,s4,t0
+	add a5,a5,t1			# tamanho total dos tiles (268) e multiplicado pelo ID e somado ao endereco inicial dos tiles de colisao para encontrar o tile atual
 	
 	la t0,collisionRender
 	addi t0,t0,spriteHeader
@@ -3928,9 +4358,9 @@ PrintMapa:
 	
 LoopBuild:	# passa pelo mapa de tiles e usa ele para montar o mapa de pixels
 
-	beq s6,s9,FimPrintMapa	# continua o c�digo quando todos os tiles forem analisados
+	beq s6,s9,FimPrintMapa	# continua o codigo quando todos os tiles forem analisados
 	
-	la a0,mapa40x30
+	lw a0,MapGridAtual
 	
 	lw t1,0(a0)
 	
@@ -3942,48 +4372,16 @@ LoopBuild:	# passa pelo mapa de tiles e usa ele para montar o mapa de pixels
 	mul t0,t0,t1		# multiplica por 40 (tamanho das linhas do mapa completo)
 	add a0,a0,t0		
 	
+	# # # # #
 	addi a0,a0,spriteHeader
 	lbu t0,0(a0)		# armazena o valor do tile a ser salvo
 	
-	li t1,1			# analisa os codigos de tile
-	beq t0,t1,GetTile1
-	li t1,2
-	beq t0,t1,GetTile2
-	li t1,3
-	beq t0,t1,GetTile3
-	li t1,4
-	beq t0,t1,GetTile4
-	li t1,5
-	beq t0,t1,GetTile5
-	li t1,6
-	beq t0,t1,GetTile6
+	lw a1,TileSprtStartAdd 		# a1, endereco inicial dos sprites
 	
-GetTile1:
-	la a1,grama
-	#la a5,emptyCol
-	j GotTile
-GetTile2:
-	la a1,chao
-	#la a5,emptyCol
-	j GotTile
-GetTile3:
-	la a1,plataforma1
-	#la a5,plataforma1Col
-	j GotTile
-GetTile4:
-	la a1,plataforma2
-	#la a5,plataforma2Col
-	j GotTile
-GetTile5:
-	la a1,plataforma3
-	#la a5,plataforma3Col
-	j GotTile
-GetTile6:
-	la a1,blocoExemp
-	#la a5,blocoExempCol
-	j GotTile
-
-GotTile:
+	li t1,tileFullSize
+	mul t1,t0,t1
+	add a1,a1,t1			# tamanho total dos tiles (268) e multiplicado pelo ID e somado ao endereco inicial dos tiles de colisao para encontrar o tile atual
+	# # # # #
 
 	addi a2,zero,-1
 	beq s4,zero,DoneColOffset	# define a2 como -1 se for a primeira coluna
@@ -4002,7 +4400,7 @@ DoneColOffset:
 	addi t0,s8,-1
 	beq s5,t0,DoneLineOffset	# define a2 como 1 se for a ultima linha
 	
-	mv a3,zero			# define a2 como 0 se for a qualquer uma das outras linhas
+	mv a3,zero			# define a3 como 0 se for a qualquer uma das outras linhas
 DoneLineOffset:			
 	
 	bne a2,zero,SaveTile		# se for uma coluna inicial ou final vai para SaveTile
@@ -4052,10 +4450,10 @@ FirstLine:
 	mv t3,zero			# contador de linhas do tile	
 	
 	sub t4,s8,s0			
-	blt a2,zero,SetColSize		# na 1a coluna a largura do tile ser� 16-OffsetX
+	blt a2,zero,SetColSize		# na 1a coluna a largura do tile sera 16-OffsetX
 	mv t4,s0
-	bgt a2,zero,SetColSize		# na ultima coluna a largura do tile ser� OffsetX
-	lw t4,0(a1)			# nas outras colunas a largura do tile � 16
+	bgt a2,zero,SetColSize		# na ultima coluna a largura do tile sera OffsetX
+	lw t4,0(a1)			# nas outras colunas a largura do tile e 16
 SetColSize:
 	beq t4,zero,FimSaveTile 	# se a ultima coluna nao estiver aparecendo, t4 = 0 e o tile pode ser skipado
 	

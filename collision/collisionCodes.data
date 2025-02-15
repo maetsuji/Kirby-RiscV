@@ -1,3 +1,13 @@
+.eqv pitCol 172
+
+.eqv floorCol 56
+
+.eqv wallCol 192
+
+.eqv ceilingCol 7
+
+.eqv doorCol 104
+
 .eqv playerCol 159 ## enemyDanger
 
 .eqv playerFireCol 23 ## enemyDanger
@@ -22,7 +32,7 @@
 
 .eqv enemyIceCol 72 # danger
 
-#.eqv doorCol 104
+.eqv whispyCol 88
 
 
 

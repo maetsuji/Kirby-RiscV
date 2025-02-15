@@ -102,3 +102,92 @@ Obj9LifeFrames:	.half 0
 Obj9Anim:	.half 0
 Obj9PosOG:	.half 0, 0
 
+Obj10ID: 	.word 0 # 0
+Obj10PosX:	.half 0 # 4
+Obj10PosY:	.half 0 # 6
+Obj10Dir:	.half 0 # 8
+Obj10Status:	.half 0 # 10 # para inimigos: -1 = morto, 0 = inativo fora da tela, 1 = vivo (na tela ou fora), 2 = atingido, 3 = sendo puxado
+Obj10LifeFrames:	.half 0 # 12
+Obj10Anim:	.half 0 # 14
+Obj10PosOG:	.half 0, 0 # 16
+
+Obj11ID: 	.word 0
+Obj11PosX:	.half 0
+Obj11PosY:	.half 0
+Obj11Dir:	.half 0
+Obj11Status:	.half 0
+Obj11LifeFrames:.half 0
+Obj11Anim:	.half 0
+Obj11PosOG:	.half 0, 0
+
+Obj12ID: 	.word 0
+Obj12PosX:	.half 0
+Obj12PosY:	.half 0
+Obj12Dir:	.half 0
+Obj12Status:	.half 0
+Obj12LifeFrames:.half 0
+Obj12Anim:	.half 0
+Obj12PosOG:	.half 0, 0
+
+Obj13ID: 	.word 0
+Obj13PosX:	.half 0
+Obj13PosY:	.half 0
+Obj13Dir:	.half 0
+Obj13Status:	.half 0
+Obj13LifeFrames:.half 0
+Obj13Anim:	.half 0
+Obj13PosOG:	.half 0, 0
+
+Obj14ID: 	.word 0
+Obj14PosX:	.half 0
+Obj14PosY:	.half 0
+Obj14Dir:	.half 0
+Obj14Status:	.half 0
+Obj14LifeFrames:.half 0
+Obj14Anim:	.half 0
+Obj14PosOG:	.half 0, 0
+
+Obj15ID: 	.word 0
+Obj15PosX:	.half 0
+Obj15PosY:	.half 0
+Obj15Dir:	.half 0
+Obj15Status:	.half 0
+Obj15LifeFrames:.half 0
+Obj15Anim:	.half 0
+Obj15PosOG:	.half 0, 0
+
+Obj16ID: 	.word 0
+Obj16PosX:	.half 0
+Obj16PosY:	.half 0
+Obj16Dir:	.half 0
+Obj16Status:	.half 0
+Obj16LifeFrames:.half 0
+Obj16Anim:	.half 0
+Obj16PosOG:	.half 0, 0
+
+Obj17ID: 	.word 0
+Obj17PosX:	.half 0
+Obj17PosY:	.half 0
+Obj17Dir:	.half 0
+Obj17Status:	.half 0
+Obj17LifeFrames:.half 0
+Obj17Anim:	.half 0
+Obj17PosOG:	.half 0, 0
+
+Obj18ID: 	.word 0
+Obj18PosX:	.half 0
+Obj18PosY:	.half 0
+Obj18Dir:	.half 0
+Obj18Status:	.half 0
+Obj18LifeFrames:.half 0
+Obj18Anim:	.half 0
+Obj18PosOG:	.half 0, 0
+
+Obj19ID: 	.word 0
+Obj19PosX:	.half 0
+Obj19PosY:	.half 0
+Obj19Dir:	.half 0
+Obj19Status:	.half 0
+Obj19LifeFrames:.half 0
+Obj19Anim:	.half 0
+Obj19PosOG:	.half 0, 0
