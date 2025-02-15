@@ -107,7 +107,7 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "archive/oldTests/testMap-Tiles.data"
 .include "archive/oldTests/testColSprites.data"
 
-#.include "maps/tempMenu.data"
+.include "maps/tempMenu.data"
 .include "maps/tempTitle.data"
 
 .include "maps/spritesHubRedTiles.data"
@@ -600,6 +600,7 @@ LoopFillLines:
 	mv a2,s2 # PosY
 	li a3,320 # tamanho X
 	li a4,1 # tamanho Y
+	li a5,1 # quick print ativado
 	jal FillPrint
 	
 	add s2,s2,s1 # adiciona certa altura para a Y
@@ -651,7 +652,7 @@ DrawMenu:
 	addi sp,sp,-4
 	sw ra,0(sp)
 
-	#la a0,tempMenu
+	la a0,tempMenu
 	li a1,264
 	jal SimplePrint # DrawMenu
 
@@ -4604,7 +4605,7 @@ FimSimplePrint:
 	ret
 	
 #---------- 
-FillPrint: # a0 = valor da cor, a1 = posicao X de inicio, a2 = posicao Y de inicio, a3 = largura, a4 = altura
+FillPrint: # a0 = valor da cor, a1 = posicao X de inicio, a2 = posicao Y de inicio, a3 = largura, a4 = altura, a5 = quickPrint ativo ou nao (1 ou 0)
 
 	li t0,320
 	mul t1,t0,a2
@@ -4618,10 +4619,12 @@ FillPrint: # a0 = valor da cor, a1 = posicao X de inicio, a2 = posicao Y de inic
 	
 	mv t4,a3 			# guarda a largura do tile
 	mv t5,a4			# guarda a altura do tile
+	
+	bnez a5,QuickPrint
 				
 FillLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 
-	sb a0,0(t0) 			# desenha no bitmap display
+	sb a0,0(t0) 			# desenha um byte no bitmap display
 
 	addi t0,t0,1			# avanca o endereco do bitmap display
 	
@@ -4634,6 +4637,32 @@ FillLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 	mv t2,zero 			# reseta o contador de colunas
 	addi t3,t3,1 			# avanca o contador de linhas
 	blt t3,t5,FillLine 		# enquanto o contador de linhas for menor que a altura repete a funcao
+	
+	j FimFillPrint
+	
+QuickPrint:
+	mv t6,a0
+	slli a0,a0,8
+	add a0,a0,t6
+	slli a0,a0,8
+	add a0,a0,t6
+	slli a0,a0,8
+	add a0,a0,t6 # 0xa0a0a0a0
+	
+QuickFillLine:
+	sw a0,0(t0) 			# desenha um byte no bitmap display
+
+	addi t0,t0,4			# avanca o endereco do bitmap display
+	
+	addi t2,t2,4 			# avanca o contador de colunas
+	blt t2,t4,QuickFillLine 		# enquanto a linha nao estiver completa, continua desenhando ela
+	
+	addi t0,t0,320 			# avanca para a proxima linha do bitmap
+	sub t0,t0,t4 			# subtrai a largura do sprite
+
+	mv t2,zero 			# reseta o contador de colunas
+	addi t3,t3,1 			# avanca o contador de linhas
+	blt t3,t5,QuickFillLine 		# enquanto o contador de linhas for menor que a altura repete a funcao
 
 FimFillPrint: 
 	ret
