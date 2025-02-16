@@ -96,6 +96,7 @@ NoteCounter: 	.word 0
 SoundDuration:	.word 0
 SoundEffectAtual:.word 0
 SoundInstrument:.word 0
+SoundEndTime:	.word 0
 
 ObjAtual:	.word 0
 .eqv objQuant 20
@@ -174,12 +175,12 @@ CheckHubDoor:
 LoadTitle:
 	sh zero,StageID,t1
 	
-	la t0,Notas1			# define o endereco inicial das notas
+	la t0,NotasTitle			# define o endereco inicial das notas
 	sw t0,MusicStartAdd,t1
 	sw t0,MusicAtual,t1
 	sw zero,NoteCounter,t1	# zera o NoteCounter
 	
-	lw t0,Duracao1
+	lw t0,DuracaoTitle # DuracaoHub
 	sw t0,LenMusAtual,t1
 	
 	j TitleMain
@@ -207,12 +208,12 @@ GotPlayerHubPos:
 	sh t0,PlayerPosX,t2
 	sh t1,PlayerPosY,t2
 	
-	la t0,Notas1			# define o endereco inicial das notas
+	la t0,NotasHub			# define o endereco inicial das notas
 	sw t0,MusicStartAdd,t1
 	sw t0,MusicAtual,t1
 	sw zero,NoteCounter,t1	# zera o NoteCounter
 	
-	lw t0,Duracao1
+	lw t0,DuracaoHub
 	sw t0,LenMusAtual,t1
 	
 	la t0,hubReducedGrid 		# endereco do grid de tiles atual
@@ -255,12 +256,12 @@ LoadLevel1:
 	sh t0,PlayerPosX,t2
 	sh t1,PlayerPosY,t2
 	
-	la t0,Notas1			# define o endereco inicial das notas
+	la t0,NotasLvl			# define o endereco inicial das notas
 	sw t0,MusicStartAdd,t1
 	sw t0,MusicAtual,t1
 	sw zero,NoteCounter,t1	# zera o NoteCounter
 	
-	lw t0,Duracao1
+	lw t0,DuracaoLvl
 	sw t0,LenMusAtual,t1
 	
 	la t0,stage1 		# endereco do grid de tiles atual
@@ -425,11 +426,11 @@ LoadBoss:
 	sh t0,PlayerPosX,t2
 	sh t1,PlayerPosY,t2
 	
-	la t0,Notas1			# define o endereco inicial das notas
+	la t0,NotasBoss			# define o endereco inicial das notas
 	sw t0,MusicStartAdd,t1
 	sw t0,MusicAtual,t1
 	
-	lw t0,Duracao1
+	lw t0,DuracaoBoss
 	sw t0,LenMusAtual,t1
 	
 	la t0,stageWhispy 		# endereco do grid de tiles atual
@@ -476,11 +477,11 @@ LoadTest:
 	sh t0,PlayerPosX,t2
 	sh t1,PlayerPosY,t2
 	
-	la t0,Notas1			# define o endereco inicial das notas
+	la t0,NotasHub			# define o endereco inicial das notas
 	sw t0,MusicStartAdd,t1
 	sw t0,MusicAtual,t1
 	
-	lw t0,Duracao1
+	lw t0,DuracaoHub
 	sw t0,LenMusAtual,t1
 	
 	la t0,mapa40x30 		# endereco do grid de tiles atual
@@ -677,7 +678,7 @@ ShowCollision:
 	addi sp,sp,-4
 	sw ra,0(sp)
 
-	la a0,Obj0ID
+	la a0,PlayerHP
 	jal UpdateCollision
 
 	la a0,collisionRender
@@ -717,10 +718,10 @@ ClockLoop:
 	
 	li t0,16
 	lhu t1,FadeTimer
-	#bgt t1,t0,SkipMusic
+	bgt t1,t0,SkipMusic
 	
 	mv a0,s0 # novo valor de tempo global e enviado para a funcao de musica
-	#jal MusicLoop
+	jal MusicLoop
 SkipMusic:
 
 	lw t0,SoundDuration 
