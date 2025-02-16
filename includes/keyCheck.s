@@ -47,7 +47,7 @@ FlipButton:
 PressButton:
 	bnez t2,FimTitleKP
 	
-	j LoadHub # # # # # # # # # # # # #
+	j LoadTest # # # # # # # # # # # # #
 
 FimTitleKP:
 	ret
@@ -209,6 +209,18 @@ SetPower5:
 	j FimKeyPress
 	
 SetCompletion:
+	# # # SoundTest
+	lw t0,SoundDuration	
+	bne t0,zero,SkipSoundTest # para iniciar um som verifica se a duracao dele ja passou (a todo ms o valor de duracao e subtriado por 1)
+	
+	li t0,10000 ### # Duracao do som em ms
+	sw t0,SoundDuration,t1
+	li t0,55### # a0, valor da nota
+	sw t0,SoundEffectAtual,t1
+	li t0,0
+	sw t0,SoundInstrument,t1
+SkipSoundTest:
+	
 	li t0,1
 	sh t0,Completion,t1
 	j FimKeyPress

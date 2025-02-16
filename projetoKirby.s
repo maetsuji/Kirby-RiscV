@@ -85,12 +85,17 @@ OtherKeys:	.byte 0, 0, 0, 0 # E, Space, -, -
 LastGlblTime:	.word 0		# valor completo da ecall 30, que sempre sera comparado e atualizado para contar os frames
 FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usado como outros contadores (1 seg = rem 50; 0.5 seg = rem 25; etc.)
 .eqv FPS 50
+.eqv frameMS 20 		# ms
 
 MusicStartAdd:	.word 0
 MusicAtual:	.word 0
 LenMusAtual:	.word 0
 NoteEndTime: 	.word 0
 NoteCounter: 	.word 0
+
+SoundDuration:	.word 0
+SoundEffectAtual:.word 0
+SoundInstrument:.word 0
 
 ObjAtual:	.word 0
 .eqv objQuant 20
@@ -558,6 +563,7 @@ TitleMain:
 	la a0,star0
 	jal SimplePrint
 	
+	
 	j TitleMain
 
 #########################################################################################################################################
@@ -671,7 +677,7 @@ ShowCollision:
 	addi sp,sp,-4
 	sw ra,0(sp)
 
-	la a0,PlayerHP
+	la a0,Obj0ID
 	jal UpdateCollision
 
 	la a0,collisionRender
@@ -711,13 +717,48 @@ ClockLoop:
 	
 	li t0,16
 	lhu t1,FadeTimer
-	bgt t1,t0,SkipMusic
+	#bgt t1,t0,SkipMusic
 	
 	mv a0,s0 # novo valor de tempo global e enviado para a funcao de musica
-	jal MusicLoop
+	#jal MusicLoop
 SkipMusic:
+
+	lw t0,SoundDuration 
+	beqz t0,SkipSubSoundDur
+	addi t0,t0,-1
+	sw t0,SoundDuration,t1
+SkipSubSoundDur:
+
+	lw a0,SoundDuration
+	li a7,1
+	ecall
 	
-	li t0,20		# a cada 20 ms o frame avanca em 1, o que equivale a 50 fps
+	la a0,endl
+	li a7,4
+	ecall
+	
+	lw a0,SoundEffectAtual
+	li a7,1
+	ecall
+	
+	la a0,endl
+	li a7,4
+	ecall
+	la a0,endl
+	li a7,4
+	ecall
+
+	lw a0,SoundEffectAtual
+	beq a0,zero,SkipSound
+	sw zero,SoundEffectAtual,t0
+	
+	lw a1,SoundDuration
+	lw a2,SoundInstrument
+	
+	jal PlaySoundEffect
+SkipSound:
+	
+	li t0,frameMS		# a cada 20 ms o frame avanca em 1, o que equivale a 50 fps
 	blt s2,t0,ClockLoop	# enquanto nao avancar o frame o codigo fica nesse loop
 	sw s0,LastGlblTime,t0	# atualiza o novo valor de tempo global
 	
@@ -731,39 +772,39 @@ FimClock:
 
 	lhu a0,Completion
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall	
+	#ecall	
 
 	lhu a0,PlayerAnimTransit
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall		
+	#ecall		
 
 	lhu a0,PlayerPowState
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall			
+	#ecall			
 	
 	lhu a0,PlayerAnim
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall		
+	#ecall		
 
 	la a0,endl
 	li a7,4
-	ecall		
+	#ecall		
 	
 	lw ra,0(sp)
 	lw s0,4(sp)
@@ -772,7 +813,7 @@ FimClock:
 	lw s3,16(sp)
 	addi sp,sp,20	
 
-	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerate do jogo como 50 fps
+	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerae do jogo como 50 fps
 
 #----------
 StartEnemiesTest: 

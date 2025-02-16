@@ -39,7 +39,7 @@ MusicLoop: # a0, tempo atual em ms
 		#li a7,31		# define a chamada de syscall
 		#ecall			# toca a nota
 	
-		jal midiOut
+		#jal midiOut
 	
 		#li a7,30		
 		#ecall			# ecall 30 - TIME - salva em a0 o tempo do programa
@@ -64,6 +64,32 @@ MusicLoop: # a0, tempo atual em ms
 		sw s3,NoteCounter,t6	# zera o NoteCounter
 		lw s1,MusicStartAdd	# define o endereco das notas / zera o ponteiro
 	
+PlaySoundEffect:
+	addi sp,sp,-4	
+	sw ra,0(sp)
+	
+	# a0, valor da nota
+	# a1, duracao da nota
+	# a2, instrumento
+	li a3,64		# define o volume		- 64
+
+	jal midiOut
+	
+	lw a0,SoundEffectAtual
+	li a7,1
+	ecall
+	
+	la a0,endl
+	li a7,4
+	ecall
+	la a0,endl
+	li a7,4
+	ecall
+	
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
 	
 EndMusicLoop:
 	sw s1,MusicAtual,t0
