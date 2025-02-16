@@ -724,36 +724,18 @@ ClockLoop:
 	jal MusicLoop
 SkipMusic:
 
-	lw t0,SoundDuration 
-	beqz t0,SkipSubSoundDur
-	addi t0,t0,-1
-	sw t0,SoundDuration,t1
-SkipSubSoundDur:
-
-	lw a0,SoundDuration
-	li a7,1
-	ecall
-	
-	la a0,endl
-	li a7,4
-	ecall
-	
-	lw a0,SoundEffectAtual
-	li a7,1
-	ecall
-	
-	la a0,endl
-	li a7,4
-	ecall
-	la a0,endl
-	li a7,4
-	ecall
+	#lw t0,SoundDuration 
+	#beqz t0,SkipSubSoundDur
+	#addi t0,t0,-1
+	#sw t0,SoundDuration,t1
+#SkipSubSoundDur:
 
 	lw a0,SoundEffectAtual
-	beq a0,zero,SkipSound
-	sw zero,SoundEffectAtual,t0
+	beqz a0,SkipSound
 	
 	lw a1,SoundDuration
+	beqz a1,SkipSound
+
 	lw a2,SoundInstrument
 	
 	jal PlaySoundEffect

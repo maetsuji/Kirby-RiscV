@@ -76,34 +76,23 @@ PlaySoundEffect:
 	sw ra,0(sp)
 	
 	lw t0,LastGlblTime
-	
 	lw t1,SoundEndTime	# salva o tempo do fim da nota em s2
-	beqz t1,PlaySound	# vai pro musicloop se s2 valer 0 (primeira nota da musica)
 	bge t0,t1,PlaySound	# se o tempo atual for maior que o fim da nota, vai pro PlayNote
         j EndSound		# vai pro resto do game loop / repete a comparacao do fim da nota
         
 PlaySound:
 	lw t0,LastGlblTime
-	add t0,t0,a1		# soma o tempo atual com a duracao dao som
+	add t0,t0,a1		# soma o tempo atual com a duracao do som
 	sw t0,SoundEndTime,t1	# salva o valor do fim da nota (valor de s2) em NoteEndTime
-	
+	sw zero,SoundEffectAtual,t0
+	sw zero,SoundDuration,t0
+
 	# a0, valor da nota
 	# a1, duracao da nota
 	# a2, instrumento
 	li a3,64		# define o volume - 64
 
 	jal midiOut
-	
-	#lw a0,SoundEffectAtual
-	#li a7,1
-	#ecall
-	
-	#la a0,endl
-	#li a7,4
-	#ecall
-	#la a0,endl
-	#li a7,4
-	#ecall
 	
 EndSound:	
 	lw ra,0(sp)
