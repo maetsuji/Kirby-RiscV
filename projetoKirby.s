@@ -142,13 +142,9 @@ StartGame:
 SetNextLevel: # chamado do MoveFly, apos apertar 'w' com o PlayerDoor em 1
 	sw zero,PlayerDoor,t0 # garante que volta a zero, pois unico lugar que tambem seta isso e no comeco da colisao do jogador com o chao
 	
-	lh t0,Completion
-	li t1,1
-	beq t0,t1,LoadBoss # se completion for 1 vai para o boss
-	
 	lh t0,StageID
 	li t1,1
-	beq t0,t1,LoadLevel1
+	beq t0,t1,CheckHubDoor
 	li t1,2
 	beq t0,t1,LoadLevel2
 	li t1,3
@@ -162,9 +158,24 @@ SetNextLevel: # chamado do MoveFly, apos apertar 'w' com o PlayerDoor em 1
 	li t1,5
 	beq t0,t1,LoadHub
 	
+CheckHubDoor:
+	li t0,192
+	lhu t1,PlayerPosY
+	
+	blt t1,t0,LoadBoss # se estiver no hub e se jogador estiver na metade de cima do hub quer dizer que ele entrou na porta do boss
+	
+	j LoadLevel1
 	
 LoadTitle:
 	sh zero,StageID,t1
+	
+	la t0,Notas1			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
+	sw zero,NoteCounter,t1	# zera o NoteCounter
+	
+	lw t0,Duracao1
+	sw t0,LenMusAtual,t1
 	
 	j TitleMain
 	
@@ -181,6 +192,11 @@ LoadHub:
 	# Posicao inicial do jogador
 	li t0,4
 	li t1,17
+	lh t2,Completion
+	beqz t2,GotPlayerHubPos
+	li t0,25
+	li t1,16
+GotPlayerHubPos:
 	slli t0,t0,4
 	slli t1,t1,4
 	sh t0,PlayerPosX,t2
@@ -189,6 +205,7 @@ LoadHub:
 	la t0,Notas1			# define o endereco inicial das notas
 	sw t0,MusicStartAdd,t1
 	sw t0,MusicAtual,t1
+	sw zero,NoteCounter,t1	# zera o NoteCounter
 	
 	lw t0,Duracao1
 	sw t0,LenMusAtual,t1
@@ -236,6 +253,7 @@ LoadLevel1:
 	la t0,Notas1			# define o endereco inicial das notas
 	sw t0,MusicStartAdd,t1
 	sw t0,MusicAtual,t1
+	sw zero,NoteCounter,t1	# zera o NoteCounter
 	
 	lw t0,Duracao1
 	sw t0,LenMusAtual,t1
@@ -279,12 +297,7 @@ LoadLevel2:
 	sh t0,PlayerPosX,t2
 	sh t1,PlayerPosY,t2
 	
-	la t0,Notas1			# define o endereco inicial das notas
-	sw t0,MusicStartAdd,t1
-	sw t0,MusicAtual,t1
-	
-	lw t0,Duracao1
-	sw t0,LenMusAtual,t1
+	# Nao atualiza a musica
 	
 	la t0,stage2 		# endereco do grid de tiles atual
 	sw t0,MapGridAtual,t1
@@ -325,12 +338,7 @@ LoadLevel3:
 	sh t0,PlayerPosX,t2
 	sh t1,PlayerPosY,t2
 	
-	la t0,Notas1			# define o endereco inicial das notas
-	sw t0,MusicStartAdd,t1
-	sw t0,MusicAtual,t1
-	
-	lw t0,Duracao1
-	sw t0,LenMusAtual,t1
+	# Nao atualiza a musica
 	
 	la t0,stage3 		# endereco do grid de tiles atual
 	sw t0,MapGridAtual,t1
@@ -371,12 +379,7 @@ LoadLevel4:
 	sh t0,PlayerPosX,t2
 	sh t1,PlayerPosY,t2
 	
-	la t0,Notas1			# define o endereco inicial das notas
-	sw t0,MusicStartAdd,t1
-	sw t0,MusicAtual,t1
-	
-	lw t0,Duracao1
-	sw t0,LenMusAtual,t1
+	# Nao atualiza a musica
 	
 	la t0,stage4 		# endereco do grid de tiles atual
 	sw t0,MapGridAtual,t1
@@ -531,6 +534,8 @@ Main:
 #======================================================
 TitleMain:
 	jal ChangeFrame # mostra o BitmapFrame atual e o atualiza, para o proximo frame ser desenhado
+	
+	jal Clock
 
 	jal TitleKeyPress
 	
@@ -2859,6 +2864,7 @@ PlayerDontSnapRight:
 SetupPlayerRWall:
 	mv t0,s3
 	li t2,192 # azul
+	li t5,88 # whispy
 	mv t3,zero
 	li t4,4				# contador de pixels a analisar
 PlayerRightWall:
@@ -2867,6 +2873,10 @@ PlayerRightWall:
 	jal SnapLeft
 	j PlayerRightWall		# repete enquanto colisao acontece
 PlayerDontSnapLeft:
+	bne t1,t5,PlayerDontSnapLeft2	
+	jal SnapLeft
+	j PlayerRightWall		# repete enquanto colisao acontece
+PlayerDontSnapLeft2:
 	addi t0,t0,160			# avanca 5 linhas no mapa de colisao
 	addi t3,t3,1
 	blt t3,t4,PlayerRightWall
