@@ -1,4 +1,4 @@
-.eqv pitCol 172
+.eqv pitCol 172 # danger
 
 .eqv floorCol 56
 
@@ -8,15 +8,15 @@
 
 .eqv doorCol 104
 
-.eqv playerCol 159 ## enemyDanger
+.eqv playerCol 159 # enemyDanger
 
-.eqv playerFireCol 23 ## enemyDanger
+.eqv playerFireCol 23 # enemyDanger
 
-.eqv playerIceCol 248 ## enemyDanger
+.eqv playerIceCol 248 # enemyDanger
 
-.eqv playerStarCol 63 ## enemyDanger
+.eqv playerStarCol 63 # enemyDanger
 
-.eqv playerPullAreaCol 132 # danger
+.eqv playerPullAreaCol 132 # enemyDanger
 
 .eqv commonEnemyCol 85 # danger
 

@@ -5,9 +5,14 @@
 .eqv pullAreaID 5
 .eqv airID 6
 .eqv starID 7
-.eqv waddleID 8
-.eqv hotHeadID 9
-.eqv chillyID 10
+.eqv enemyAirID 8
+.eqv enemyFireID 9
+.eqv enemyIceID 10
+.eqv enemyFruit 11
+.eqv waddleID 12
+.eqv hotHeadID 13
+.eqv chillyID 14
+
 
 #.eqv FireSpeedX 4
 #.eqv FireSpeedY 1

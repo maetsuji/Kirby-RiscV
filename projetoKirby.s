@@ -9,7 +9,7 @@
 
 BitmapFrame:	.word 0xff000000
 
-StageID:	.half 0
+StageID:	.half 0 # 0 = title. 1 = hub, 2 = Level1, 3 = Level2, 4 = Level3, 5 = Level4, 6 = Boss, 7 = Ending
 Completion:	.half 0
 FadeLines:	.half 0
 FadeTimer:	.half 0
@@ -31,7 +31,10 @@ OffsetX:	.half 0		# quantidade de pixels que o jogador se moveu na horizontal qu
 OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que modificam a posicao do mapa  
 OldOffset:	.word 0		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
 
-PlayerHP:	.word 0		# endereco dessa variavel serve como ID do jogador, usada para comparacao no UpdateCollision
+Score:		.word 0
+
+PlayerHP:	.half 0		# endereco dessa variavel serve como ID do jogador, usada para comparacao no UpdateCollision
+PlayerLives:	.half 0
 PlayerPosX: 	.half 0		# posicao em pixels do jogador no eixo X (de 0 ate a largura do mapa completo)
 PlayerPosY: 	.half 0		# posicao em pixels do jogador no eixo Y (de 0 ate a altura do mapa completo)
 OldPlayerPos:	.word 0		# precisa comecar com um valor para ser comparado no Print (so roda se a posicao antiga for diferente da atual)  ## nao mais utilizado atualmente
@@ -68,7 +71,8 @@ PlayerDoor:	.word 0
 .eqv playerJumpPow -600
 .eqv playerFlyIndex 13
 .eqv playerMouthIndex 3
-.eqv playerKnockback 250
+.eqv playerKnockbackX 250
+.eqv playerKnockbackY -150
 
 .eqv gravityAcc 25
 
@@ -83,7 +87,7 @@ MoveKeys:	.byte 0, 0, 0, 0 # W, A, S, D
 OtherKeys:	.byte 0, 0, 0, 0 # E, Space, -, -
 
 LastGlblTime:	.word 0		# valor completo da ecall 30, que sempre sera comparado e atualizado para contar os frames
-FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usado como outros contadores (1 seg = rem 50; 0.5 seg = rem 25; etc.)
+FrameCount:	.word 0		# contador de frames, sempre aumenta para que possa ser usado como outros contadores
 .eqv FPS 50
 .eqv frameMS 20 		# ms
 
@@ -102,9 +106,12 @@ ObjAtual:	.word 0
 .eqv objQuant 20
 .eqv objSize 20
 
-.eqv enemyStartIndex 8
-.eqv dangerQuant 4
+.eqv enemyStartIndex 12
+.eqv dangerQuant 5
 .eqv enemyDangerQuant 5
+
+BossHP:		.word 0
+BossTimer:	.word 0	
 
 tempPos:	.word 0
 
@@ -113,8 +120,9 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "archive/oldTests/testMap-Tiles.data"
 .include "archive/oldTests/testColSprites.data"
 
-.include "maps/tempMenu.data"
-.include "maps/tempTitle.data"
+.include "maps/title/titleSprites.data"
+.include "maps/menu/menuSprites.data"
+.include "maps/menu/numberSprites.data"
 
 .include "maps/spritesHubRedTiles.data"
 .include "maps/spritesStageTiles.data"
@@ -133,15 +141,45 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "collision/colSprites.data"
 
 .text
-	j LoadTitle
+	j StartGame
 
 .include "includes/keyCheck.s"
 .include "includes/musicKirby.s"
+
+.include "includes/title.s"
+.include "includes/menu.s"
 	
 #########################################################################################################################################
 StartGame:
 	csrr a0,3073
 	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock
+	
+	li t0,7
+	sh t0,PlayerHP,t1
+	
+	li t0,4
+	sh t0,PlayerLives,t1
+	
+	li t0,28
+	sw t0,BossHP,t1
+	
+	li a0,0xff
+	mv a1,zero
+	mv a2,zero
+	li a3,320
+	li a4,240
+	li a5,1
+	jal FillPrint
+	
+	jal ChangeFrame
+	
+	li a0,0xff
+	mv a1,zero
+	mv a2,zero
+	li a3,320
+	li a4,240
+	li a5,1
+	jal FillPrint
 
 	j LoadTitle
 	
@@ -183,6 +221,17 @@ LoadTitle:
 	lw t0,DuracaoTitle # DuracaoHub
 	sw t0,LenMusAtual,t1
 	
+	lh t0,PlayerLives
+	#bnez t0,DontFadeTitle # apenas da fade no title se o jogador morrer
+	li t0,32
+	sh t0,FadeTimer,t1
+	li t0,0xff
+	sw t0,FadeColor,t1
+DontFadeTitle:
+	
+	li t0,4
+	sh t0,PlayerLives,t1
+		
 	j TitleMain
 	
 LoadHub:
@@ -228,7 +277,15 @@ GotPlayerHubPos:
 	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
 	sw t0,ColSprtStartAdd,t1
 	
-	#jal StartEnemiesTest
+	li t0,7
+	sh t0,PlayerHP,t1
+	
+	sw zero,PlayerSpeedX,t0
+	sh zero,PlayerAnimState,t0
+	sw zero,PlayerIFrames,t0 
+	sw zero,PlayerLock,t0
+	
+	jal ClearObjects
 	
 	li t0,32
 	sh t0,FadeTimer,t1
@@ -276,6 +333,13 @@ LoadLevel1:
 	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
 	sw t0,ColSprtStartAdd,t1
 	
+	sw zero,PlayerSpeedX,t0
+	sh zero,PlayerAnimState,t0
+	sw zero,PlayerIFrames,t0 
+	sw zero,PlayerLock,t0
+	
+	jal ClearObjects
+	
 	#jal StartEnemiesTest
 	
 	li t0,32
@@ -316,6 +380,13 @@ LoadLevel2:
 	
 	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
 	sw t0,ColSprtStartAdd,t1
+	
+	sw zero,PlayerSpeedX,t0
+	sh zero,PlayerAnimState,t0
+	sw zero,PlayerIFrames,t0 
+	sw zero,PlayerLock,t0
+	
+	jal ClearObjects
 	
 	#jal StartEnemiesTest
 	
@@ -358,6 +429,13 @@ LoadLevel3:
 	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
 	sw t0,ColSprtStartAdd,t1
 	
+	jal ClearObjects
+	
+	sw zero,PlayerSpeedX,t0
+	sh zero,PlayerAnimState,t0
+	sw zero,PlayerIFrames,t0 
+	sw zero,PlayerLock,t0
+	
 	#jal StartEnemiesTest
 	
 	li t0,32
@@ -398,6 +476,13 @@ LoadLevel4:
 	
 	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
 	sw t0,ColSprtStartAdd,t1
+	
+	sw zero,PlayerSpeedX,t0
+	sh zero,PlayerAnimState,t0
+	sw zero,PlayerIFrames,t0 
+	sw zero,PlayerLock,t0
+	
+	jal ClearObjects
 	
 	#jal StartEnemiesTest
 	
@@ -444,6 +529,18 @@ LoadBoss:
 	
 	la t0,Col0 		# endereco inicial dos sprites de tile de colisao
 	sw t0,ColSprtStartAdd,t1
+	
+	sw zero,PlayerSpeedX,t0
+	sh zero,PlayerAnimState,t0
+	sw zero,PlayerIFrames,t0 
+	sw zero,PlayerLock,t0
+	
+	jal ClearObjects
+	
+	li t0,28
+	sw t0,BossHP,t1
+	
+	sw zero,BossTimer,t1
 	
 	li t0,32
 	sh t0,FadeTimer,t1
@@ -539,24 +636,28 @@ Main:
 
 #======================================================
 TitleMain:
-	jal ChangeFrame # mostra o BitmapFrame atual e o atualiza, para o proximo frame ser desenhado
+	jal FadeScreen
 	
 	jal Clock
+	
+	jal ChangeFrame # mostra o BitmapFrame atual e o atualiza, para o proximo frame ser desenhado
+		
+	li t0,16
+	lhu t1,FadeTimer
+	bgt t1,t0,TitleMain # enquanto a primeira parte da transicao acontece mantem a tela do estagio passado
 
 	jal TitleKeyPress
 	
-	la a0,tempTitle
-	li a1,32
-	jal SimplePrint
+	jal DrawTitle
 	
 	
 	lw t0,TitleControls
 	li t1,40
 	mul t0,t0,t1
 	
-	li t1,152
-	li t2,140
-	add t2,t2,t0
+	li t1,132
+	li t2,180
+	add t1,t1,t0
 	
 	slli a1,t2,16
 	add a1,a1,t1
@@ -658,21 +759,7 @@ NoIFrames:
 	addi sp,sp,4
 	
 	ret
-
-#----------
-DrawMenu:
-	addi sp,sp,-4
-	sw ra,0(sp)
-
-	la a0,tempMenu
-	li a1,264
-	jal SimplePrint # DrawMenu
-
-	lw ra,0(sp)
-	addi sp,sp,4
 	
-	ret
-
 #----------
 ShowCollision:
 	addi sp,sp,-4
@@ -937,6 +1024,30 @@ EndCheckbounds:
 	ret
 
 #----------
+ClearObjects:
+	addi sp,sp,-4
+	sw ra,0(sp)
+	
+	la t0,Obj0ID
+	mv t1,zero # contador de objetos
+	li t2,objQuant
+LoopClearObjs:
+	beq t1,t2,EndClearObjs
+	
+	sw zero,0(t0)
+	
+	addi t0,t0,objSize
+	addi t1,t1,1
+	
+	j LoopClearObjs
+	
+EndClearObjs:
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
+
+
 BuildObject: # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
 
 	addi sp,sp,-16
@@ -998,7 +1109,14 @@ NewInstance:
 	beq a0,t0,BuildCommonEnemy
 	li t0,chillyID
 	beq a0,t0,BuildCommonEnemy
+	li t0,enemyAirID 
+	beq a0,t0,BuildEnemyAir
+	li t0,enemyFireID 
+	beq a0,t0,BuildFire # o que importa para a colisao e apenas o ID
+	li t0,enemyIceID
+	beq a0,t0,BuildIce
 	
+BuildEnemyAir:
 BuildDust:
 	li t0,12
 	beq a3,zero,DustBreakRtoL
@@ -1281,6 +1399,8 @@ SkipCheckBounds:
 	beq s3,t0,DrawHotHead
 	li t0,chillyID
 	beq s3,t0,DrawChilly
+	li t0,enemyFireID
+	beq s3,t0,DrawFire
 
 	j DrawNextObj
 
@@ -1662,7 +1782,7 @@ GotWaddleDeeSprt:
 	j DrawObjReady
 	
 # # # # # # # #	# # # # # # # # # # # # # # # # # 
-DrawHotHead: ### TODO
+DrawHotHead: 
 	ble s7,zero,DrawNextObj # se estiver com status -1 = morto, 0 = desativado (fora da tela),  1 = ativado, 2 = atingido, 3 = sendo puxado
 	
 	li t0,3
@@ -1675,6 +1795,28 @@ SkipSubExtraHotHead:
 	
 	li t0,2
 	beq s7,t0,HotHeadDeath
+	
+	andi t0,s8,127
+	andi t2,t0,3
+	andi t3,t0,8
+	li t1,96
+	bgt t0,t1,SkipHotHeadAttack # fim do ataque
+	
+	li t1,2
+	bne t2,t1,SkipHotHeadAttack # define se ataca ou nao
+	slti a4,t3,8 # define se ataque vai para cima ou para baixo
+	
+	li t1,64
+	bgt t0,t1,HotHeadAttack # inicio do ataque
+	j SkipHotHeadAttack
+HotHeadAttack:
+	li a0,enemyFireID # id do objeto (fogo inimigo)
+	li a1,1 # quantidade do objeto
+	slli a2,s5,16 #PosY
+	add a2,a2,s4 # PosX
+	mv a3,s6 # Dir
+	jal BuildObject
+SkipHotHeadAttack:
 	
 	li t1,-1
 	andi t3,s8,1 # s8, lifeFrames
@@ -2796,12 +2938,15 @@ SetupPlayerEnemies:
 	li t1,2
 	li t2,enemyIceCol
 	beq t6,t1,PlayerEnemies
+	li t1,3
+	li t2,pitCol
+	beq t6,t1,PlayerEnemies
 
 PlayerEnemies:
 
 	add t0,t0,t5
 	lbu t1,0(t0)
-	sb zero,0(t0)
+	#sb zero,0(t0)
 	beq t1,t2,PlayerHit
 	
 	addi t3,t3,1
@@ -2821,12 +2966,15 @@ PlayerHit:
 	andi t1,t3,1 # se o contador de pixels for impar = hit pela direita = jogador vira a direita
 	sw t1,PlayerLastDir,t5
 
-	li t1,playerKnockback 
+	li t1,playerKnockbackX 
 	lw t5,PlayerLastDir
 	beq t5,zero,GotKnockback
 	sub t1,zero,t1
 GotKnockback:
 	sh t1,PlayerSpeedX,t0 # define manualmente a velocidade do jogador como alem da maxima na direcao oposta que ele esta olhando para efeito de knockback
+	
+	li t1,playerKnockbackY
+	sh t1,PlayerSpeedY,t0
 
 	li t1,25 # tempo da animacao de hit
 	sh t1,PlayerAnimTransit,t5
@@ -2844,10 +2992,28 @@ GotKnockback:
 DefPlayerFlyHit:
 	sh t1,PlayerAnimState,t5 # caso bem especifico em que a animacao do jogador e setada apos as verificacoes de movimento e de ataque
 	
+	lh t1,PlayerHP
+	addi t1,t1,-1
+	sh t1,PlayerHP,t0
+	
+	#beqz t1,PlayerDeath
+	
 	li t1,1
 	#beq s10,t1,DropFire
 	li t1,2
 	#beq s10,t1,DropIce
+	
+	j DonePlayerEnemyColCheck
+	
+PlayerDeath:
+	lh t0,PlayerLives
+	addi t0,t0,-1
+	sh t0,PlayerLives,t1
+	
+	bnez t0,SimpleDeath
+	j LoadTitle
+SimpleDeath:
+	j LoadHub # ao morrer simplesmente volta para o hub
 	
 DonePlayerEnemyColCheck:
 	
@@ -3830,9 +3996,6 @@ DoneFireObjs:
 	li s6,3
 	beq s1,t0,GotPlayerSprite
 
-PlayerSpitItem: ### TODO
-	j DoneIceObjs
-
 GotPlayerSprite:
 	sh s1,PlayerAnimCount,t0
 	sw s4,PlayerSprite,t0	# armazena o endereco do novo sprite no PlayerSprite
@@ -4192,8 +4355,7 @@ RenderNextObj:
 	addi s5,s5,objSize
 	j IterateRenderObjCols
 
-RenderObjAtual:
-	
+RenderObjAtual:	
 	li t0,enemyStartIndex
 	blt s7,t0,RenderNotEnemy
 	lh t0,10(s5) # Status, se for um inimigo e o status dele for 0 significa que esta inativo
@@ -4239,6 +4401,10 @@ RenderNotEnemy:
 	
 	li t0,chillyID
 	li a5,commonEnemyCol
+	beq s7,t0,GotCollision
+	
+	li t0,enemyFireID
+	li a5,enemyFireCol
 	beq s7,t0,GotCollision
 
 	j RenderNextObj
@@ -4619,13 +4785,13 @@ SimplePrint: # a0 = endereco do sprite, a1 = posicao 0xYYYYXXXX
 				
 SimpleLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 
-	lw t6,0(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
-	sw t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente)
+	lb t6,0(t1) 			# guarda um pixel do sprite (nao pode ser word por nao estar sempre alinhado com o endereco)
+	sb t6,0(t0) 			# desenha no bitmap display (4 pixels separadamente)
 
-	addi t0,t0,4			# avanca o endereco do bitmap display
-	addi t1,t1,4 			# avanca o endereco da imagem
+	addi t0,t0,1			# avanca o endereco do bitmap display
+	addi t1,t1,1 			# avanca o endereco da imagem
 	
-	addi t2,t2,4 			# avanca o contador de colunas
+	addi t2,t2,1 			# avanca o contador de colunas
 	blt t2,t4,SimpleLine 	# enquanto a linha nao estiver completa, continua desenhando ela
 	
 	addi t0,t0,320 			# avanca para a proxima linha do bitmap
@@ -4676,15 +4842,15 @@ FillLine: 	# t0 = endereco do bitmap display; t1 = endereco do sprite
 	
 QuickPrint:
 	mv t6,a0
-	slli a0,a0,8
-	add a0,a0,t6
-	slli a0,a0,8
-	add a0,a0,t6
-	slli a0,a0,8
-	add a0,a0,t6 # 0xa0a0a0a0
+	slli t1,a0,8
+	add t1,t1,t6
+	slli t1,t1,8
+	add t1,t1,t6
+	slli t1,t1,8
+	add t1,t1,t6 # 0xa0a0a0a0
 	
 QuickFillLine:
-	sw a0,0(t0) 			# desenha um byte no bitmap display
+	sw t1,0(t0) 			# desenha um byte no bitmap display
 
 	addi t0,t0,4			# avanca o endereco do bitmap display
 	
