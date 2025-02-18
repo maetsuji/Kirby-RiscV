@@ -521,7 +521,7 @@ LoadBoss:
 	
 	# Posicao inicial do jogador
 	li t0,2
-	li t1,18 #3
+	li t1,3
 	slli t0,t0,4
 	slli t1,t1,4
 	sh t0,PlayerPosX,t2
