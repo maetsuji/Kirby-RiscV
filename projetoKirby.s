@@ -133,8 +133,10 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "maps/title/titleSprites.data"
 .include "maps/menu/menuSprites.data"
 .include "maps/menu/numberSprites.data"
+.include "maps/menu/letterSprites.data"
 
-.include "maps/hubRedTileSprites.data"
+.include "maps/hubFullTileSprites.data"
+.include "maps/hubSpecialTiles.data"
 .include "maps/stageTileSprites.data"
 .include "maps/stageCols.data"
 .include "maps/stageGrids.data"
@@ -195,7 +197,7 @@ StartGame:
 	li a5,1
 	jal FillPrint
 
-	j LoadBoss
+	j LoadTitle
 	
 SetNextLevel: # chamado do MoveFly, apos apertar 'w' com o PlayerDoor em 1
 	sw zero,PlayerDoor,t0 # garante que volta a zero, pois unico lugar que tambem seta isso e no comeco da colisao do jogador com o chao
@@ -279,7 +281,7 @@ GotPlayerHubPos:
 	lw t0,DuracaoHub
 	sw t0,LenMusAtual,t1
 	
-	la t0,hubReducedGrid 		# endereco do grid de tiles atual
+	la t0,hubFullGrid 		# endereco do grid de tiles atual
 	sw t0,MapGridAtual,t1
 	
 	la t0,hubRTiles 	# endereco inicial dos sprites de tile
