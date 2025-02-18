@@ -6,7 +6,7 @@ CheckBoss:
 	jal DrawBoss
 	
 	lh t0,PlayerPosY
-	li t1,288
+	li t1,160
 	blt t0,t1,EndCheckBoss
 	
 	jal BossLogic

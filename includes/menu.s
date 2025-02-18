@@ -725,8 +725,6 @@ MenuEating:
 	li t0,5
 	beq s1,t0,GotMenuState
 	
-	j MenuEating
-	
 NotMenuEating:
 
 	la a0,menuNormal

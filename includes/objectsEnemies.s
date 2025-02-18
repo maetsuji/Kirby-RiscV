@@ -182,7 +182,7 @@ BuildFire:
 	srli t2,t2,16 # isola posX
 	srli t3,a2,16 # isola posY
 
-	li t0,12 # offset inicial do fogo 
+	li t0,15 # offset inicial do fogo 
 	bne a3,zero,BuildFireRight
 	sub t0,zero,t0
 BuildFireRight:
@@ -666,11 +666,11 @@ DrawHit:
 	
 	mv a0,s8
 	li a7,1
-	ecall
+	#ecall
 	
 	la a0,endl
 	li a7,4
-	ecall	
+	#ecall	
 	
 	la a0,hit0 # frames com vida 8 e 7
 	li t0,6 

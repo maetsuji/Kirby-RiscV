@@ -76,11 +76,13 @@ ContinueKP:
 	sw t1,LastKey,t0		# atualiza a ultima tecla pressionada
 	
 	DE1(t0,DE1KeyPress)
-	
+
+ReturnDE1KP:
+
 	lw s0,PlayerLock
 	bne s0,zero,LockedPlayer
-	
-ReturnDE1KP:
+
+	lw t1,LastKey
 
 	li t0,'d'
 	beq t0,t1,DirectionKey
@@ -140,6 +142,9 @@ DE1KeyPress:
 	li t0,KeyMap0
 	lw s4,0(t0)
 	lw s5,4(t0)
+	
+	sw zero,0(s2)
+	lw zero,0(s3)
 	
 	slli t0,s1,keyW
 	and t1,s4,t0 # KeyMap0
@@ -209,18 +214,31 @@ SetPower5:
 	j FimKeyPress
 	
 SetCompletion:
-	# # # SoundTest
-	lw t0,SoundDuration	
-	bne t0,zero,SkipSoundTest # para iniciar um som verifica se a duracao dele ja passou (a todo ms o valor de duracao e subtriado por 1)
 	
-	li t0,100 ### # Duracao do som em ms
-	sw t0,SoundDuration,t1
-	li t0,65### # a0, valor da nota
-	sw t0,SoundEffectAtual,t1
-	li t0,127
-	sw t0,SoundInstrument,t1
-SkipSoundTest:
+	li a0,100 # duracao em ms
+	li a1,80 # nota
+	mv a2,zero # instrumento
+	jal SetSound
 	
 	li t0,1
 	sh t0,Completion,t1
 	j FimKeyPress
+	
+SetSound: # a0 = duracao da nota, a1 = valor da nota, a2 = instrumento
+
+	addi sp,sp,-4
+	sw ra,0(sp)			# pilha armazena apenas valor de retorno
+
+	# # # SoundTest
+	lw t0,SoundDuration	
+	bne t0,zero,SkipSetSound # para iniciar um som verifica se a duracao dele ja passou (a todo ms o valor de duracao e subtraido por 1)
+
+	sw a0,SoundDuration,t1
+	sw a1,SoundEffectAtual,t1
+	sw a2,SoundInstrument,t1
+SkipSetSound:
+
+	lw ra,0(sp)			# pilha armazena apenas valor de retorno
+	addi sp,sp,4
+
+	ret

@@ -64,15 +64,15 @@ PlayerDoor:	.word 0
 .eqv playerMaxQuickFallSp 200
 .eqv playerMaxSlowFallSp 100
 .eqv playerMaxJumpSp -4
-.eqv playerAccX 120
-.eqv playerDeaccX 10
-.eqv playerSlowDeaccX 5
+playerAccX: 	.word 120
+playerDeaccX: 	.word 15
+playerSlowDeaccX: .word 5
 .eqv playerFlyPow -450
 .eqv playerJumpPow -600
 .eqv playerFlyIndex 13
 .eqv playerMouthIndex 3
-.eqv playerKnockbackX 250
-.eqv playerKnockbackY -150
+playerKnockbackX: .word 250
+playerKnockbackY: .word -150
 
 .eqv gravityAcc 25
 
@@ -135,7 +135,8 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 .include "maps/menu/numberSprites.data"
 .include "maps/menu/letterSprites.data"
 
-.include "maps/hubFullTileSprites.data"
+#.include "maps/hubFullTileSprites.data"
+.include "maps/hubRedTileSprites.data"
 .include "maps/hubSpecialTiles.data"
 .include "maps/stageTileSprites.data"
 .include "maps/stageCols.data"
@@ -179,6 +180,24 @@ StartGame:
 	li t0,28
 	sw t0,BossHP,t1
 	
+	DE1(t0,DE1Start)
+	
+	j SkipDE1Start
+	
+DE1Start:
+	li t0,60
+	sw t0,playerAccX,t1
+	li t0,30
+	sw t0,playerDeaccX,t1
+	li t0,60
+	sw t0,playerSlowDeaccX,t1
+	li t0,750
+	sw t0,playerKnockbackX,t1
+	li t0,-275
+	sw t0,playerKnockbackY,t1
+	
+SkipDE1Start:
+	
 	li a0,0xff
 	mv a1,zero
 	mv a2,zero
@@ -197,7 +216,7 @@ StartGame:
 	li a5,1
 	jal FillPrint
 
-	j LoadTitle
+	j LoadHub
 	
 SetNextLevel: # chamado do MoveFly, apos apertar 'w' com o PlayerDoor em 1
 	sw zero,PlayerDoor,t0 # garante que volta a zero, pois unico lugar que tambem seta isso e no comeco da colisao do jogador com o chao
@@ -281,7 +300,7 @@ GotPlayerHubPos:
 	lw t0,DuracaoHub
 	sw t0,LenMusAtual,t1
 	
-	la t0,hubFullGrid 		# endereco do grid de tiles atual
+	la t0,hubReducedGrid#hubFullGrid 		# endereco do grid de tiles atual
 	sw t0,MapGridAtual,t1
 	
 	la t0,hubRTiles 	# endereco inicial dos sprites de tile
@@ -356,7 +375,7 @@ LoadLevel1:
 	
 	jal ClearObjects
 	
-	#jal StartEnemiesTest
+	jal StartEnemiesLvl1
 	
 	li t0,32
 	sh t0,FadeTimer,t1
@@ -404,7 +423,7 @@ LoadLevel2:
 	
 	jal ClearObjects
 	
-	#jal StartEnemiesTest
+	jal StartEnemiesLvl2
 	
 	li t0,32
 	sh t0,FadeTimer,t1
@@ -452,7 +471,7 @@ LoadLevel3:
 	sw zero,PlayerIFrames,t0 
 	sw zero,PlayerLock,t0
 	
-	#jal StartEnemiesTest
+	jal StartEnemiesLvl3
 	
 	li t0,32
 	sh t0,FadeTimer,t1
@@ -500,7 +519,7 @@ LoadLevel4:
 	
 	jal ClearObjects
 	
-	#jal StartEnemiesTest
+	jal StartEnemiesLvl4
 	
 	li t0,32
 	sh t0,FadeTimer,t1
@@ -769,7 +788,7 @@ DrawPlayer:
 	
 	lw t0,PlayerIFrames	# frames especiais (invencibilidade, ganhar poder(?))
 	beq t0,zero,NoIFrames
-	li t1,100
+	li t1,75
 	bge t0,t1,NoIFrames
 	sw zero,PlayerLock,t2
 	andi t0,t0,15
@@ -944,7 +963,6 @@ StartEnemiesTest:
 	slli a2,a2,4
 	li a0,waddleID # waddle dee
 	li a1,1
-	li a2,0x00100020
 	mv a3,zero
 	mv a4,zero
 	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
@@ -963,7 +981,6 @@ StartEnemiesTest:
 	slli a2,a2,16
 	addi a2,a2,3 # PosX
 	slli a2,a2,4
-	li a2,0x00a00030
 	li a0,chillyID # chilly
 	li a1,1
 	mv a3,zero
@@ -974,7 +991,224 @@ StartEnemiesTest:
 	addi sp,sp,4
 	
 	ret
+	
+#----------
+StartEnemiesLvl1: 
+	addi sp,sp,-4
+	sw ra,0(sp)
 
+	li a2,6 # PosY
+	slli a2,a2,16
+	addi a2,a2,6 # PosX
+	slli a2,a2,4
+	li a0,hotHeadID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,19 # PosY
+	slli a2,a2,16
+	addi a2,a2,4 # PosX
+	slli a2,a2,4
+	li a0,waddleID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,19 # PosY
+	slli a2,a2,16
+	addi a2,a2,14 # PosX
+	slli a2,a2,4
+	li a0,waddleID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
+	
+	
+#----------
+StartEnemiesLvl2: 
+	addi sp,sp,-4
+	sw ra,0(sp)
+
+	li a2,272 # PosY
+	slli a2,a2,16
+	addi a2,a2,160 # PosX
+	li a0,waddleID 
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,chillyID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,128 # PosY
+	slli a2,a2,16
+	addi a2,a2,576 # PosX
+	li a0,hotHeadID 
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,720 # PosX
+	li a0,chillyID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,96 # PosY
+	slli a2,a2,16
+	addi a2,a2,928 # PosX
+	li a0,waddleID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
+	
+	
+#----------
+StartEnemiesLvl3: 
+	addi sp,sp,-4
+	sw ra,0(sp)
+
+	li a2,432 # PosY
+	slli a2,a2,16
+	addi a2,a2,112 # PosX
+	li a0,chillyID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,496 # PosY
+	slli a2,a2,16
+	addi a2,a2,160 # PosX
+	li a0,waddleID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,304 # PosY
+	slli a2,a2,16
+	addi a2,a2,96 # PosX
+	li a0,hotHeadID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,160 # PosY
+	slli a2,a2,16
+	addi a2,a2,144 # PosX
+	li a0,hotHeadID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject
+	
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
+	
+	
+#----------
+StartEnemiesLvl4: 
+	addi sp,sp,-4
+	sw ra,0(sp)
+
+	li a2,112 # PosY
+	slli a2,a2,16
+	addi a2,a2,312 # PosX
+	li a0,chillyID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,112 # PosY
+	slli a2,a2,16
+	addi a2,a2,312 # PosX
+	li a0,chillyID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,128 # PosY
+	slli a2,a2,16
+	addi a2,a2,560 # PosX
+	li a0,waddleID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,904 # PosX
+	li a0,chillyID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,64 # PosY
+	slli a2,a2,16
+	addi a2,a2,904 # PosX
+	li a0,chillyID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,112 # PosY
+	slli a2,a2,16
+	addi a2,a2,784 # PosX
+	li a0,hotHeadID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,1232 # PosX
+	li a0,waddleID
+	li a1,1
+	mv a3,zero
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
+	
 #----------
 ChangeFrame:
 	lw s0,BitmapFrame
@@ -1035,8 +1269,8 @@ PlayerControls:  # s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10
 	
 DE1CheckAtt:
 	la t0,OtherKeys
-	lbu t1,0(t0)
-	bnez t1,AttackCheck
+	lbu t6,0(t0)
+	bnez t6,AttackCheck
 EndDE1CheckAtt:
 	
 	li t0,1
@@ -1145,12 +1379,12 @@ DoneAttack:
 HorizontalMove:
 	lh s4,PlayerSpeedX		# s4, velocidade X do jogador em seu valor completo
 	
-	lhu t0,PlayerGndState
-	li t1,playerSlowDeaccX
+	lhu t0,PlayerGndState	
+	lw t1,playerSlowDeaccX
 	beq t0,zero,SetSlowDeaccX
-	li t1,playerDeaccX		# t1, velocidade de desaceleracao do jogador no eixo X 
+	lw t1,playerDeaccX		# t1, velocidade de desaceleracao do jogador no eixo X 
 SetSlowDeaccX:
-	li t2,playerAccX		# t2, velocidade de aceleracao do jogador no eixo X
+	lw t2,playerAccX		# t2, velocidade de aceleracao do jogador no eixo X
 	li t3,playerMaxSpX		# t3, velocidade maxima do jogador no eixo X
 	
 SlowLeftToRight:
@@ -1165,8 +1399,8 @@ SlowLeftToRight:
 	
 DE1CheckLeft:
 	la t0,MoveKeys
-	lbu t1,1(t0) # a
-	bnez t1,MoveLeft
+	lbu t6,1(t0) # a
+	bnez t6,MoveLeft
 EndDE1CheckL:
 
 	beq s4,zero,SlowRightToLeft	# se velocidade for zero ainda precisa conferir se 'd' esta sendo apertado
@@ -1188,8 +1422,8 @@ SlowRightToLeft:
 	
 DE1CheckRight:
 	la t0,MoveKeys
-	lbu t1,3(t0)
-	bnez t1,MoveRight
+	lbu t6,3(t0)
+	bnez t6,MoveRight
 EndDE1CheckR:
 	
 	
@@ -1255,14 +1489,12 @@ ReturnCheckStFly:
 	
 DE1CheckUp:
 	la t0,MoveKeys
-	lbu t1,0(t0) # w
-	bnez t1,MoveFly
+	lbu t6,0(t0) # w
+	bnez t6,MoveFly
 	
-	lbu t1,5(t0) # espaco
-	bnez t1,MoveJump
+	lbu t6,5(t0) # espaco
+	bnez t6,MoveJump
 EndDE1CheckUp:
-	
-	
 LockedJump:
 
 	beq t1,zero,MoveFall		# se estado do jogador for 0 ele esta caindo
@@ -1271,9 +1503,23 @@ LockedJump:
 	beq s6,t0,EndEatingDown
 BackEatingDown:
 
+	li t0,13
+	beq s6,t0,LockedD # se estiver com ar skipa para baixo
+
 	bne s9,zero,LockedD
+	
+	DE1(t0,DE1CheckDown)
+	
 	li t0,'s'
 	beq s0,t0,MoveDown
+
+	j EndDE1CheckDown
+
+DE1CheckDown:
+	la t0,MoveKeys
+	lbu t6,2(t0) # s
+	bnez t6,MoveDown
+EndDE1CheckDown:
 LockedD:
 	
 	blt s5,zero,DoneVerticalMv	# se o jogador estiver indo para cima o chao nao para ele (impede um snap que estava acontecendo)
@@ -1496,20 +1742,20 @@ PlayerHit:
 	andi t1,t3,1 # se o contador de pixels for impar = hit pela direita = jogador vira a direita
 	sw t1,PlayerLastDir,t5
 
-	li t1,playerKnockbackX 
+	lw t1,playerKnockbackX 
 	lw t5,PlayerLastDir
 	beq t5,zero,GotKnockback
 	sub t1,zero,t1
 GotKnockback:
 	sh t1,PlayerSpeedX,t0 # define manualmente a velocidade do jogador como alem da maxima na direcao oposta que ele esta olhando para efeito de knockback
 	
-	li t1,playerKnockbackY
+	lw t1,playerKnockbackY
 	sh t1,PlayerSpeedY,t0
 
 	li t1,25 # tempo da animacao de hit
 	sh t1,PlayerAnimTransit,t5
 	
-	li t1,125 # tempo do jogador invencivel
+	li t1,100 # tempo do jogador invencivel
 	sw t1,PlayerIFrames,t5
 	
 	li t1,1
@@ -1526,7 +1772,7 @@ DefPlayerFlyHit:
 	addi t1,t1,-1
 	sh t1,PlayerHP,t0
 	
-	#beqz t1,PlayerDeath
+	beqz t1,PlayerDeath
 	
 	li t1,1
 	#beq s10,t1,DropFire
@@ -2280,6 +2526,11 @@ PlayerBigWalk:
 	beq s1,t0,GotPlayerSprite
 	
 PlayerStartEat:
+	li a0,100 # duracao em ms
+	li a1,80 # nota
+	mv a2,zero # instrumento
+	jal SetSound
+
 	jal CheckNextSprAnim
 	andi s1,s1,1
 	
@@ -2292,6 +2543,11 @@ PlayerStartEat:
 	beq s1,t0,GotPlayerSprite
 
 PlayerEat:
+	li a0,100 # duracao em ms
+	li a1,80 # nota
+	mv a2,zero # instrumento
+	jal SetSound
+
 	lw t0,PlayerObjDelay
 	li t1,10
 	beq t0,t1,TinyDustObj2
@@ -2425,6 +2681,11 @@ DoneAirObj:
 	beq s1,t0,GotPlayerSprite
 
 PlayerIceAttack:
+	li a0,100 # duracao em ms
+	li a1,80 # nota
+	mv a2,zero # instrumento
+	jal SetSound
+
 	lw t0,PlayerObjDelay
 	li t1,10
 	beq t0,t1,IceObjects2
@@ -2495,6 +2756,11 @@ DoneIceObjs:
 	beq s1,t0,GotPlayerSprite
 
 PlayerFireAttack:
+	li a0,100 # duracao em ms
+	li a1,20 # nota
+	mv a2,zero # instrumento
+	jal SetSound
+
 	lw t0,PlayerObjDelay
 	li t1,6
 	slt a4,t0,t1 # a4, define se o fogo vai para cima (0) ou para baixo (1)
