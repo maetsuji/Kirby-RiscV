@@ -568,7 +568,7 @@ MenuBoss:
 	lw s0,BossHP
 	
 	li s1,296 # PosX inicial
-	li s2,63 # PosY inicial
+	li s2,62 # PosY inicial
 	
 	mv s3,zero # contador de HP
 	li s4,28 
