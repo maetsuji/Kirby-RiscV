@@ -509,8 +509,8 @@ PlayerEnemies:
 	#sb zero,0(t0)
 	beq t1,t2,PlayerHit
 	
-	li t2,starRodCol
-	bne t1,t2,NotEnding
+	li a6,starRodCol
+	bne t1,a6,NotEnding
 	j LoadEnding
 NotEnding:
 	
