@@ -262,6 +262,9 @@ LoadTitle:
 	li t0,0xff
 	sw t0,FadeColor,t1
 	
+	sw zero,Score,t0
+	sh zero,Completion,t0
+	
 	li t0,playerBaseLives
 	sh t0,PlayerLives,t1
 		
