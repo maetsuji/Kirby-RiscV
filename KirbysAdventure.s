@@ -703,7 +703,7 @@ NotHub:
 	
 	jal DrawMenu
 	
-	jal ShowCollision
+	#jal ShowCollision
 
 	j Main
 
