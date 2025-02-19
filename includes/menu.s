@@ -531,7 +531,7 @@ DrawMenu:
 	li s2,108 # PosY
 	
 	mv s3,zero # contador de casas do numero
-	li s4,6
+	li s4,scoreLen
 	
 LoopScoreNum:
 	beq s3,s4,EndMenuScoreBoss
@@ -611,7 +611,7 @@ EndMenuScoreBoss:
 	li s2,63 # PosY inicial
 	
 	mv s3,zero # contador de HP
-	li s4,7 
+	li s4,playerBaseHP 
 	
 DrawPlayerHP:
 	beq s3,s4,EndDrawPlayerHP

@@ -32,6 +32,7 @@ OffsetY:	.half 0		# quantidade de pixels que o jogador se moveu na vertical que 
 OldOffset:	.word 0		# precisa comecar com um valor para ser comparado no PrintMapa (so roda se a posicao antiga for diferente da atual) 
 
 Score:		.word 0
+.eqv scoreLen 6
 
 PlayerHP:	.half 0		# endereco dessa variavel serve como ID do jogador, usada para comparacao no UpdateCollision
 PlayerLives:	.half 0
@@ -73,6 +74,8 @@ playerSlowDeaccX: .word 5
 .eqv playerMouthIndex 3
 playerKnockbackX: .word 250
 playerKnockbackY: .word -150
+.eqv playerBaseHP 7
+.eqv playerBaseLives 2
 
 .eqv gravityAcc 25
 
@@ -122,6 +125,8 @@ BossAnimDuration:.word 0
 BossIFrames:	.word 0	
 LastApple:	.word 0
 
+GameAnimTimer:	.word 0
+
 tempPos:	.word 0
 
 endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
@@ -156,13 +161,13 @@ endl:		.string "\n"	# temporariamente sendo usado para debug (contador de ms)
 
 .text
 	j StartGame
-.include "includes/objectsEnemies.s"
+
 .include "includes/boss.s"
 .include "includes/keyCheck.s"
 .include "includes/sounds.s"
 
-
-.include "includes/title.s"
+.include "includes/objectsEnemies.s"
+.include "includes/titleEnding.s"
 .include "includes/menu.s"
 
 	
@@ -171,10 +176,10 @@ StartGame:
 	csrr a0,3073
 	sw a0,LastGlblTime,t0	# define o primeiro valor do timer global, que sera comparado no Clock
 	
-	li t0,7
+	li t0,playerBaseHP
 	sh t0,PlayerHP,t1
 	
-	li t0,4
+	li t0,playerBaseLives
 	sh t0,PlayerLives,t1
 	
 	li t0,28
@@ -195,7 +200,6 @@ DE1Start:
 	sw t0,playerKnockbackX,t1
 	li t0,-275
 	sw t0,playerKnockbackY,t1
-	
 SkipDE1Start:
 	
 	li a0,0xff
@@ -216,7 +220,7 @@ SkipDE1Start:
 	li a5,1
 	jal FillPrint
 
-	j LoadHub
+	j LoadEnding
 	
 SetNextLevel: # chamado do MoveFly, apos apertar 'w' com o PlayerDoor em 1
 	sw zero,PlayerDoor,t0 # garante que volta a zero, pois unico lugar que tambem seta isso e no comeco da colisao do jogador com o chao
@@ -240,7 +244,6 @@ SetNextLevel: # chamado do MoveFly, apos apertar 'w' com o PlayerDoor em 1
 CheckHubDoor:
 	li t0,192
 	lhu t1,PlayerPosY
-	
 	blt t1,t0,LoadBoss # se estiver no hub e se jogador estiver na metade de cima do hub quer dizer que ele entrou na porta do boss
 	
 	j LoadLevel1
@@ -257,14 +260,12 @@ LoadTitle:
 	sw t0,LenMusAtual,t1
 	
 	lh t0,PlayerLives
-	#bnez t0,DontFadeTitle # apenas da fade no title se o jogador morrer
 	li t0,32
 	sh t0,FadeTimer,t1
 	li t0,0xff
 	sw t0,FadeColor,t1
-DontFadeTitle:
 	
-	li t0,4
+	li t0,playerBaseLives
 	sh t0,PlayerLives,t1
 		
 	j TitleMain
@@ -321,6 +322,8 @@ GotPlayerHubPos:
 	sw zero,PlayerLock,t0
 	
 	jal ClearObjects
+	
+	jal StartHubObjects
 	
 	li t0,32
 	sh t0,FadeTimer,t1
@@ -586,11 +589,35 @@ LoadBoss:
 	j Main
 	
 # # # # #
-LoadEnd:
+LoadEnding:
 	li t0,7
 	sh t0,StageID,t1
 	
-	j Main
+	la t0,NotasTitle			# define o endereco inicial das notas
+	sw t0,MusicStartAdd,t1
+	sw t0,MusicAtual,t1
+	sw zero,NoteCounter,t1	# zera o NoteCounter
+	
+	lw t0,DuracaoTitle # DuracaoHub
+	sw t0,LenMusAtual,t1
+	
+	li t0,32
+	sh t0,FadeTimer,t1
+	li t0,0xff
+	sw t0,FadeColor,t1
+
+	# Posicao inicial do jogador
+	li t0,132
+	li t1,43
+	sh t0,PlayerPosX,t2
+	sh t1,PlayerPosY,t2
+	
+	li t0,playerBaseLives
+	sh t0,PlayerLives,t1
+	
+	sw zero,GameAnimTimer,t1
+		
+	j TitleMain
 
 # # # # #
 LoadTest:
@@ -660,16 +687,22 @@ Main:
 # toda funcao que muda posicao de personagens/objetos deve ser chamada antes de imprimi-los
 
 	jal PrintMapa		# imprime o mapa usando o offset
-
-	jal DrawPlayer
 	
 	lh t0,StageID
 	li t1,6
 	bne t0,t1,NotBoss
 	jal CheckBoss
 NotBoss:
+
+	lh t0,StageID
+	li t1,1
+	bne t0,t1,NotHub
+	jal DrawHubObjects
+NotHub:
 	
 	jal DrawObjects
+	
+	jal DrawPlayer
 	
 	jal DrawMenu
 	
@@ -691,23 +724,13 @@ TitleMain:
 
 	jal TitleKeyPress
 	
+	lh t0,StageID
+	bnez t0,EndingScreen
 	jal DrawTitle
-	
-	
-	lw t0,TitleControls
-	li t1,40
-	mul t0,t0,t1
-	
-	li t1,132
-	li t2,180
-	add t1,t1,t0
-	
-	slli a1,t2,16
-	add a1,a1,t1
-	
-	la a0,star0
-	jal SimplePrint
-	
+	j DoneTitleScreen
+EndingScreen:
+	jal DrawEnding
+DoneTitleScreen:	
 	
 	j TitleMain
 
@@ -881,67 +904,15 @@ SkipSound:
 		
 FimClock:
 
-	# debugs
-
-	lhu a0,BossAnimDuration
-	li a7,1
-	#ecall
+	# debug
 	
-	la a0,endl
-	li a7,4
-	#ecall	
-
-	lhu a0,BossTimer
-	li a7,1
-	#ecall
-	
-	la a0,endl
-	li a7,4
-	#ecall		
-
-	lhu a0,BossAnimState
-	li a7,1
-	#ecall
-	
-	la a0,endl
-	li a7,4
-	#ecall			
-	
-	lhu a0,BossSprite
-	li a7,1
-	#ecall
-	
-	la a0,endl
-	li a7,4
-	#ecall		
-
-	lhu a0,BossOldAnim
-	li a7,1
-	#ecall
-	
-	la a0,endl
-	li a7,4
-	#ecall	
-
-	lhu a0,BossAnimCount
+	lhu a0,PlayerAnimState
 	li a7,1
 	#ecall
 	
 	la a0,endl
 	li a7,4
 	#ecall
-	
-	lhu a0,BossMaxFrame
-	li a7,1
-	#ecall
-	
-	la a0,endl
-	li a7,4
-	#ecall
-	
-	la a0,endl
-	li a7,4
-	#ecall		
 	
 	lw ra,0(sp)
 	lw s0,4(sp)
@@ -952,36 +923,400 @@ FimClock:
 
 	ret			# depois de avancar o frame segue para o resto do codigo da main, basicamente definindo o framerae do jogo como 50 fps
 
+
+
+#----------
+DrawHubObjects:
+	addi sp,sp,-4
+	sw ra,0(sp)
+	
+	la a0,hubDoor2
+	li a1,272
+	slli a1,a1,16
+	addi a1,a1,96
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hubDoor2
+	li a1,304
+	slli a1,a1,16
+	addi a1,a1,240
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hubDoor2
+	li a1,208
+	slli a1,a1,16
+	addi a1,a1,320
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hubDoor3
+	li a1,224
+	slli a1,a1,16
+	addi a1,a1,160
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hubDoor3
+	li a1,160
+	slli a1,a1,16
+	addi a1,a1,240
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hubDoor3
+	li a1,48
+	slli a1,a1,16
+	addi a1,a1,448
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hubDoor1
+	lh t0,Completion
+	bnez t0,GotLowerDoor
+	
+	lw t0,FrameCount
+	andi t0,t0,4
+	la a0,hubDoor0
+	beqz t0,GotLowerDoor
+	la a0,hubDoor4
+GotLowerDoor:
+	li a1,256
+	slli a1,a1,16
+	addi a1,a1,384
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	lw t0,FrameCount
+	andi t0,t0,4
+	la a0,hubDoor0
+	beqz t0,GotUpperDoor
+	la a0,hubDoor4
+GotUpperDoor:
+	li a1,128
+	slli a1,a1,16
+	addi a1,a1,432
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hub1
+	li a1,255
+	slli a1,a1,16
+	addi a1,a1,96
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hub2
+	li a1,287
+	slli a1,a1,16
+	addi a1,a1,240
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hub3
+	li a1,191
+	slli a1,a1,16
+	addi a1,a1,320
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	la a0,hubDoor1
+	lh t0,Completion
+	bnez t0,GotSignFour
+	
+	lw t0,FrameCount
+	andi t0,t0,4
+	mv a4,zero
+	beqz t0,GotSignFour
+	li a4,-1
+GotSignFour:
+	la a0,hub4
+	li a1,239
+	slli a1,a1,16
+	addi a1,a1,384
+	li a3,1
+	jal Print
+	
+	lw t0,FrameCount
+	andi t0,t0,4
+	mv a4,zero
+	beqz t0,GotSignDedede
+	li a4,-1
+GotSignDedede:
+	la a0,hubDedede
+	li a1,111
+	slli a1,a1,16
+	addi a1,a1,432
+	li a3,1
+	jal Print
+	
+	lw t0,FrameCount
+	andi t0,t0,31
+	li t1,11
+	la a0,hubFlag0
+	blt t0,t1,GotFlagSprite
+	li t1,22
+	la a0,hubFlag1 
+	blt t0,t1,GotFlagSprite
+	la a0,hubFlag2
+GotFlagSprite:
+	li a1,274
+	slli a1,a1,16
+	addi a1,a1,112
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	# a0 mantido
+	li a1,306
+	slli a1,a1,16
+	addi a1,a1,256
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	# a0 mantido
+	li a1,210
+	slli a1,a1,16
+	addi a1,a1,336
+	li a3,1
+	mv a4,zero
+	jal Print
+	
+	lh t0,Completion
+	beqz t0,SkipFlag4
+	# a0 mantido
+	li a1,258
+	slli a1,a1,16
+	addi a1,a1,400
+	li a3,1
+	mv a4,zero
+	jal Print
+SkipFlag4:
+	
+	#-------------------------------
+	lh t0,Completion
+	bnez t0,SkipHubBlocks
+	
+	mv s0,zero # contador
+	li s1,40
+	
+	li s2,416 # PosX inicial
+	li s3,16 # PosY inicial
+		
+LoopBlocks:
+	andi t0,s0,1
+	la a0,hubT1
+	beqz t0,GotLoopBlock 
+	la a0,hubRTiles
+GotLoopBlock:
+
+	li t0,5
+	div t0,s0,t0
+	slli t0,t0,4 
+	add a1,s3,t0 
+	slli a1,a1,16 # encontra Y
+
+	li t0,5
+	rem t0,s0,t0
+	slli t0,t0,4
+	add a1,a1,s2
+	add a1,a1,t0 # encontra X
+	
+	li a3,1
+	mv a4,zero
+	
+	jal Print
+	
+	addi s0,s0,1
+	bne s0,s1,LoopBlocks # loopa enquanto nao foram construidos todos os blocos
+SkipHubBlocks:
+	
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret 
+
+#----------
+StartHubObjects:
+	addi sp,sp,-4
+	sw ra,0(sp)
+	
+	lh t0,Completion
+	bnez t0,HubCompletedLevel
+
+	li a2,16 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockWall
+	li a1,1
+	li a3,1
+	mv a4,zero
+	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
+	
+	li a2,32 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockWall
+	li a1,1
+	li a3,1
+	li a4,1
+	jal BuildObject
+	
+	li a2,48 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockWall
+	li a1,1
+	li a3,1
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,64 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockWall
+	li a1,1
+	li a3,1
+	li a4,1
+	jal BuildObject
+	
+	li a2,80 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockWall
+	li a1,1
+	li a3,1
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,96 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockWall
+	li a1,1
+	li a3,1
+	li a4,1
+	jal BuildObject
+	
+	li a2,112 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockWall
+	li a1,1
+	li a3,1
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,128 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockWall
+	li a1,1
+	li a3,1
+	li a4,1
+	jal BuildObject
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,400 # PosX
+	li a0,hubBlockCeil
+	li a1,1
+	li a3,1
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,416 # PosX
+	li a0,hubBlockCeil
+	li a1,1
+	li a3,1
+	li a4,1
+	jal BuildObject
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,432 # PosX
+	li a0,hubBlockCeil
+	li a1,1
+	li a3,1
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,448 # PosX
+	li a0,hubBlockCeil
+	li a1,1
+	li a3,1
+	li a4,1
+	jal BuildObject
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,464 # PosX
+	li a0,hubBlockCeil
+	li a1,1
+	li a3,1
+	mv a4,zero
+	jal BuildObject
+	
+	li a2,144 # PosY
+	slli a2,a2,16
+	addi a2,a2,480 # PosX
+	li a0,hubBlockCeil
+	li a1,1
+	li a3,1
+	li a4,1
+	jal BuildObject
+	
+HubCompletedLevel:
+	lw ra,0(sp)
+	addi sp,sp,4
+	
+	ret
+	
+
 #----------
 StartEnemiesTest: 
 	addi sp,sp,-4
 	sw ra,0(sp)
 
-	li a2,1 # PosY
+	li a2,16 # PosY
 	slli a2,a2,16
-	addi a2,a2,2 # PosX
-	slli a2,a2,4
-	li a0,waddleID # waddle dee
+	addi a2,a2,32 # PosX
+	li a0,waddleID
 	li a1,1
 	mv a3,zero
 	mv a4,zero
 	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
 	
-	li a2,7 # PosY
+	li a2,112 # PosY
 	slli a2,a2,16
-	addi a2,a2,8 # PosX
-	slli a2,a2,4
-	li a0,hotHeadID # hot head
+	addi a2,a2,128 # PosX
+	li a0,hotHeadID
 	li a1,1
 	mv a3,zero
 	mv a4,zero
 	jal BuildObject
 	
-	li a2,10 # PosY
+	li a2,160 # PosY
 	slli a2,a2,16
-	addi a2,a2,3 # PosX
-	slli a2,a2,4
-	li a0,chillyID # chilly
+	addi a2,a2,48 # PosX
+	li a0,chillyID
 	li a1,1
 	mv a3,zero
 	mv a4,zero
@@ -997,30 +1332,27 @@ StartEnemiesLvl1:
 	addi sp,sp,-4
 	sw ra,0(sp)
 
-	li a2,6 # PosY
+	li a2,96 # PosY
 	slli a2,a2,16
-	addi a2,a2,6 # PosX
-	slli a2,a2,4
+	addi a2,a2,96 # PosX
 	li a0,hotHeadID
 	li a1,1
-	mv a3,zero
+	li a3,1
 	mv a4,zero
 	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
 	
-	li a2,19 # PosY
+	li a2,304 # PosY
 	slli a2,a2,16
-	addi a2,a2,4 # PosX
-	slli a2,a2,4
+	addi a2,a2,64 # PosX
 	li a0,waddleID
 	li a1,1
 	mv a3,zero
 	mv a4,zero
 	jal BuildObject
 	
-	li a2,19 # PosY
+	li a2,304 # PosY
 	slli a2,a2,16
-	addi a2,a2,14 # PosX
-	slli a2,a2,4
+	addi a2,a2,224 # PosX
 	li a0,waddleID
 	li a1,1
 	mv a3,zero
@@ -1038,9 +1370,9 @@ StartEnemiesLvl2:
 	addi sp,sp,-4
 	sw ra,0(sp)
 
-	li a2,272 # PosY
+	li a2,160 # PosY
 	slli a2,a2,16
-	addi a2,a2,160 # PosX
+	addi a2,a2,256 # PosX
 	li a0,waddleID 
 	li a1,1
 	mv a3,zero
@@ -1096,7 +1428,7 @@ StartEnemiesLvl3:
 
 	li a2,432 # PosY
 	slli a2,a2,16
-	addi a2,a2,112 # PosX
+	addi a2,a2,128 # PosX
 	li a0,chillyID
 	li a1,1
 	mv a3,zero
@@ -1149,16 +1481,7 @@ StartEnemiesLvl4:
 	mv a3,zero
 	mv a4,zero
 	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
-	
-	li a2,112 # PosY
-	slli a2,a2,16
-	addi a2,a2,312 # PosX
-	li a0,chillyID
-	li a1,1
-	mv a3,zero
-	mv a4,zero
-	jal BuildObject # a0 = id do objeto, a1 = quantidade de objetos a adicionar, a2 = posicao de referencia (0xYYYYXXXX), a3 = direcao do objeto (0 = esq, 1 = dir), a4 = valor de apoio
-	
+		
 	li a2,128 # PosY
 	slli a2,a2,16
 	addi a2,a2,560 # PosX
@@ -1218,9 +1541,14 @@ ChangeFrame:
 	li t0,0xff200604	# endereco que define qual frame esta sendo apresentado
 	sw s1,0(t0)		# para visualizar o frame que acabou de ser desenhado
 	
+	li t0,16
+	lhu t1,FadeTimer
+	bgt t1,t0,SkipChangeFrame
+	
 	li t0,0x00100000
 	xor s0,s0,t0
 	sw s0,BitmapFrame,t0
+SkipChangeFrame:
 	
 	ret
 
@@ -1480,7 +1808,7 @@ ReturnCheckStFly:
 	DE1(t0,DE1CheckUp)	
 
 	li t0,'w'
-	beq s0,t0,MoveFly
+	beq s0,t0,MoveFly 		# possui chamada de troca de fase
 	
 	li t0,' '			
 	beq s0,t0,MoveJump		# pulo unico
@@ -1534,12 +1862,23 @@ EndEatingDown:
 	sw zero,PlayerLock,t0 # destrava o jogador
 	
 	li t0,3
-	blt s10,t0,DoneVerticalMv # se nao tiver com nenhum item na boca nao muda o PowState
+	blt s10,t0,DoneVerticalMv # se nao tiver com nenhum item na boca nao muda o PowState	
+	
+	lw t0,Score
+	addi t0,t0,150
+	sw t0,Score,t1	
 	
 	addi s10,s10,-3 # basta subtrair 3 do PowState de item na boca para definir o novo PowState 
 	sw s10,PlayerPowState,t1
 	
 	beq s10,zero,DoneVerticalMv 
+	
+	lw t0,Score
+	addi t0,t0,150
+	sw t0,Score,t1	
+	
+	li t0,1
+	sw t0,PlayerLock,t1	
 	
 	li s7,1 # para o caso de ganhar o poder de fogo
 	li t0,30
@@ -1724,6 +2063,11 @@ PlayerEnemies:
 	lbu t1,0(t0)
 	#sb zero,0(t0)
 	beq t1,t2,PlayerHit
+	
+	li t2,starRodCol
+	bne t1,t2,NotEnding
+	j LoadEnding
+NotEnding:
 	
 	addi t3,t3,1
 	beq t3,t4,NextDangerCheck
@@ -2117,7 +2461,7 @@ EndDefFireIce:
 	
 	#lh t0,FadeTimer # unused, fade e muito especifico para isso funcionar
 	#li t1,16
-	#li s1,24 # DefAnimEnter # tecnicamente so acontece enquanto o o fade esta iniciando
+	#li s1,24 # DefAnimEnter
 	#bgt t0,t1,DefinedAnim
 
 DefineAnimHorz:
@@ -2278,23 +2622,9 @@ ContinueAnim:
 	la s4,kirbyBigHit
 	beq s3,t0,GotPlayerSprite
 	li t0,23
-	beq s3,t0,PlayerEaten
-	li t0,24 # Unused
-	beq s3,t0,PlayerEnter
-	
-PlayerEnter: # Unused
-	jal CheckNextSprAnim
-	andi s1,s1,1
-	
-	la s4,kirbyEnter0
-	li s6,4
-	beq s1,zero,GotPlayerSprite
-	li t0,1
-	la s4,kirbyEnter1
-	li s6,12
-	beq s1,t0,GotPlayerSprite
+	beq s3,t0,PlayerEating
 		
-PlayerEaten:
+PlayerEating:
 	jal CheckNextSprAnim
 	andi s1,s1,1
 	
@@ -2360,6 +2690,11 @@ PlayerDownEating:
 	
 		
 PlayerStarAttack:
+	li a0,300 # duracao em ms
+	li a1,68 # nota
+	mv a2,zero # instrumento
+	jal SetSound
+
 	lw t0,PlayerObjDelay
 	bgt t0,zero,DoneStarObj
 	
@@ -2698,31 +3033,6 @@ PlayerIceAttack:
 	li a1,1 # quantidade do objeto
 	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
-	li a4,0
-	jal BuildObject
-	
-	li a0,4 # id do objeto (gelo)
-	li a1,1 # quantidade do objeto
-	lw a2,PlayerPosX
-	lw a3,PlayerLastDir	
-	li a4,2
-	jal BuildObject
-	
-	li a0,4 # id do objeto (gelo)
-	li a1,1 # quantidade do objeto
-	lw a2,PlayerPosX
-	lw a3,PlayerLastDir
-	li a4,4
-	jal BuildObject
-	
-	j DoneIceObjs
-	
-IceObjects2:
-	
-	li a0,4 # id do objeto (gelo)
-	li a1,1 # quantidade do objeto
-	lw a2,PlayerPosX
-	lw a3,PlayerLastDir
 	li a4,1
 	jal BuildObject
 	
@@ -2738,6 +3048,30 @@ IceObjects2:
 	lw a2,PlayerPosX
 	lw a3,PlayerLastDir
 	li a4,5
+	jal BuildObject
+	
+	j DoneIceObjs
+	
+IceObjects2:
+	li a0,4 # id do objeto (gelo)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,0
+	jal BuildObject
+	
+	li a0,4 # id do objeto (gelo)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir	
+	li a4,2
+	jal BuildObject
+	
+	li a0,4 # id do objeto (gelo)
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	lw a3,PlayerLastDir
+	li a4,4
 	jal BuildObject
 	
 	j DoneIceObjs
@@ -2757,7 +3091,7 @@ DoneIceObjs:
 
 PlayerFireAttack:
 	li a0,100 # duracao em ms
-	li a1,20 # nota
+	li a1,40 # nota
 	mv a2,zero # instrumento
 	jal SetSound
 
@@ -3216,9 +3550,23 @@ RenderNotEnemy:
 	beq s7,t0,GotCollision
 	
 	li t0,hitID
+	bne s7,t0,SkipDefHitCol
 	li a5,playerStarCol # por precaucao, para evitar que inimigos nao sejam atingidos quando deveriam
-	beq s7,t0,GotCollision
+	lh t1,10(s5)
+	beqz t1,GotCollision # status for 0, desenha a colisao do hit, se nao, sera um hit inimigo e nao tera colisao
+SkipDefHitCol:
 
+	li t0,hubBlockWall
+	li a5,wallCol
+	beq s7,t0,GotCollision
+	
+	li t0,hubBlockCeil
+	li a5,ceilingCol
+	beq s7,t0,GotCollision
+	
+	li t0,starRodID
+	li a5,starRodCol
+	beq s7,t0,GotCollision
 
 	j RenderNextObj
 

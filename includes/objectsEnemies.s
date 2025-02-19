@@ -37,7 +37,7 @@ NewInstance:
 	
 	sh zero,12(s0) # lifeFrames
 	
-	sh zero,14(s0) # anim
+	sh zero,14(s0) # assist
 	
 	sw zero,16(s0) # posOG
 	
@@ -69,12 +69,34 @@ NewInstance:
 	beq a0,t0,BuildCommonEnemy
 	li t0,hitID
 	beq a0,t0,BuildHit
+	li t0,hubBlockWall
+	beq a0,t0,BuildHubBlock
+	li t0,hubBlockCeil	# nao precisa modificar valores deles
+	beq a0,t0,BuildHubBlock
+	li t0,starRodID	# nao precisa modificar valores deles
+	beq a0,t0,BuildStarRod
+	
+BuildStarRod:
+	li t0,0x7fff # objetos sempre tem a vida diminuida
+	sh t0,12(s0) # lifeFrames
+	
+	j BuildNextObj
+	
+BuildHubBlock:
+	li t0,0x7fff # objetos sempre tem a vida diminuida
+	sh t0,12(s0) # lifeFrames
+
+	sh a4,10(s0)
+	
+	j BuildNextObj
 	
 BuildHit:
-	sw a2,4(s0) # posX e posY
+	#sw a2,4(s0) # posX e posY
 	
 	li t0,8
 	sh t0,12(s0) # lifeFrames
+	
+	sh a4,10(s0) # se for 0 = hit de objeto do jogador (atinge inimigos), 1 = hit de objeto inimigo (apenas estetico)
 	
 	j BuildNextObj
 	
@@ -182,7 +204,7 @@ BuildFire:
 	srli t2,t2,16 # isola posX
 	srli t3,a2,16 # isola posY
 
-	li t0,15 # offset inicial do fogo 
+	li t0,13 # offset inicial do fogo 
 	bne a3,zero,BuildFireRight
 	sub t0,zero,t0
 BuildFireRight:
@@ -192,7 +214,7 @@ BuildFireRight:
 	add t3,t3,t2
 	sw t3,4(s0) # posX e posY
 	
-	li t0,10
+	li t0,12
 	sh t0,12(s0) # lifeFrames
 	
 	j BuildNextObj
@@ -384,10 +406,56 @@ SkipCheckBounds:
 	li t0,enemyAppleID
 	beq s3,t0,DrawWaddleDee ### DrawApple
 	li t0,hitID
-	beq s3,t0,DrawHit ### DrawApple
+	beq s3,t0,DrawHit
+	li t0,hubBlockWall
+	beq s3,t0,DrawHubBlock
+	li t0,hubBlockCeil
+	beq s3,t0,DrawHubBlock
+	li t0,starRodID
+	beq s3,t0,DrawStarRod
 
 	j DrawNextObj
+	
+DrawStarRod:
+	
+	li t0,112
+	addi s4,s4,-2
+	bge s4,t0,MoveStarRod
+	mv s4,t0
+MoveStarRod:
 
+	sh s4,4(s0) # PosX
+	sh s5,6(s0) # PosY
+	
+	slli t0,s5,16
+	add a1,t0,s4
+	
+	andi t0,s8,31
+	slti a3,t0,16
+	
+	mv a4,zero
+	
+	andi t0,s8,15
+	la a0,starRod1 # frames de 0 a 3
+	li t1,4
+	blt t0,t1,DrawObjReady
+	la a0,starRod0 # frames de 4 a 7
+	li t1,10
+	blt t0,t1,DrawObjReady
+	la a0,starRod1 # frames de 0 a 3
+	j DrawObjReady
+	
+
+DrawHubBlock:
+	la a0,hubRTiles
+	beqz s7,GotHubTileSprt
+	la a0,hubT1
+GotHubTileSprt:
+	lw a1,4(s0)
+	li a3,1
+	mv a4,zero
+	
+	j DrawObjReady
 
 DrawDust:
 	slli t0,s5,16
@@ -780,8 +848,6 @@ GotWaddleDeathPos:
 	sh zero,12(s0) # reinicia LifeFrames para 0
 	lw t0,16(s0) # carrega posicao original do objeto
 	sw t0,4(s0) # atualiza posicao atual do objeto para a original
-	
-	### TODO jal build EnemyDeath
 
 	j DrawNextObj
 	
@@ -893,6 +959,11 @@ SkipSubExtraHotHead:
 	bgt t0,t1,HotHeadAttack # inicio do ataque
 	j SkipHotHeadAttack
 HotHeadAttack:
+	li a0,300 # duracao em ms
+	li a1,35 # nota
+	mv a2,zero # instrumento
+	jal SetSound
+
 	li a0,enemyFireID # id do objeto (fogo inimigo)
 	li a1,1 # quantidade do objeto
 	slli a2,s5,16 #PosY
@@ -973,8 +1044,6 @@ GotHotHeadDeathPos:
 	sh zero,12(s0) # reinicia LifeFrames para 0
 	lw t0,16(s0) # carrega posicao original do objeto
 	sw t0,4(s0) # atualiza posicao atual do objeto para a original
-	
-	### TODO jal build EnemyDeath
 
 	j DrawNextObj
 	
@@ -1074,19 +1143,11 @@ SkipSubExtraChilly:
 	
 	mv t2,zero
 
-	andi t0,s8,511
+	andi t0,s8,255
 	andi t2,s8,7
 	andi t3,s8,15
 	andi t4,s8,3
 	
-	li t1,448
-	bge t0,t1,ChillyMoveLeft
-	li t1,384
-	bge t0,t1,ChillyMoveRight
-	li t1,320
-	bge t0,t1,ChillyMoveLeft
-	li t1,256
-	bge t0,t1,ChillyMoveRight
 	li t1,192
 	bge t0,t1,ChillyMoveLeft
 	li t1,160
@@ -1114,6 +1175,11 @@ ChillyMove:
 	j GotChillyState
 
 ChillyJumpAtt:
+	li a0,300 # duracao em ms
+	li a1,75 # nota
+	mv a2,zero # instrumento
+	jal SetSound
+
 	li t0,8
 	beq t3,t0,ChillyIceObjs2
 	bnez t3,DoneChillyIce
@@ -1166,7 +1232,7 @@ ChillyIceObjs2:
 	jal BuildObject
 	
 DoneChillyIce:
-	andi t0,s8,511
+	andi t0,s8,255
 
 	li t1,104
 	li t6,1
@@ -1247,8 +1313,6 @@ GotChillyDeathPos:
 	sh zero,12(s0) # reinicia LifeFrames para 0
 	lw t0,16(s0) # carrega posicao original do objeto
 	sw t0,4(s0) # atualiza posicao atual do objeto para a original
-	
-	### TODO jal build EnemyDeath
 
 	j DrawNextObj
 	
@@ -1466,6 +1530,14 @@ NotPullingEnemy:
 EnemyHit:
 	li t0,15 # duracao da animacao de morte
 	sh t0,14(s0) # Extra
+	
+	lw t0,Score
+	addi t0,t0,100
+	li t1,waddleID
+	beq s4,t1,WaddlePoints
+	addi t0,t0,150
+WaddlePoints:
+	sw t0,Score,t1	
 
 	li t0,2
 	sh t0,10(s0) # atualiza status para 2 (esta morrendo)
@@ -1595,6 +1667,8 @@ EnemyEaten:
 	li t0,waddleID
 	li t1,playerMouthIndex # 3
 	beq s4,t0,SetEatenPower
+	li t0,enemyAppleID
+	beq s4,t0,SetEatenPower
 	li t0,hotHeadID
 	li t1,4
 	beq s4,t0,SetEatenPower
@@ -1631,6 +1705,12 @@ CheckScreenBounds: # a0 = endereco do objeto; a1 = 1 para despawnar, 0 para ativ
 	sw s1,8(sp)
 	sw s2,12(sp)
 	sw s3,16(sp)
+	
+	lw t0,0(a0)
+	li t1,hubBlockWall
+	beq t0,t1,EndCheckbounds
+	li t1,hubBlockCeil
+	beq t0,t1,EndCheckbounds
 
 	lh s0,4(a0) # posX
 	lh s1,6(a0) # posY
@@ -1649,7 +1729,7 @@ CheckScreenBounds: # a0 = endereco do objeto; a1 = 1 para despawnar, 0 para ativ
 	
 	li t0,-16
 	blt s0,t0,OutOfBounds #LeftOOB
-	li t0,248 # old: 304
+	li t0,264 # old: 304
 	bgt s0,t0,OutOfBounds #RightOOB
 	
 	li t0,-16
@@ -1750,7 +1830,6 @@ ObjectCollisionCheck: # a0 = endereco do objeto sendo analisado
 	
 	add s3,s3,t0			# s3, inicialmente com o endereco para o primeiro pixel do jogador no mapa de colisoes renderizado
 
-
 	mv t6,zero # contador de colisoes que podem atingir o objeto
 	
 	j SetupObjectCols
@@ -1767,6 +1846,11 @@ SetupObjectCols:
 	mv t3,zero
 	li t4,4				# contador de pixels a analisar
 
+	li t1,enemyFireID
+	bne t1,s4,NotEnemyFireObj
+	beqz t6,NextObjectDanger # se um objeto de fogo inimigo skipa a colisao com outros inimigos
+NotEnemyFireObj:
+
 	li t2,commonEnemyCol
 	beq t6,zero,ObjectCols
 	li t1,1
@@ -1777,7 +1861,6 @@ SetupObjectCols:
 	beq t6,t1,ObjectCols
 
 ObjectCols:
-
 	add t0,t0,t5
 	lbu t1,0(t0)
 	
@@ -1819,8 +1902,32 @@ GotBossDamage:
 	lw t0,BossHP
 	add t0,t0,t1
 	bgt t0,zero,DontZeroBossHP
-	jal ClearObjects
+	#jal ClearObjects
+	
+	# criacao da star rod
+	lh t0,Completion
+	li t1,2
+	beq t0,t1,NotStarRodAgain
+	sh t1,Completion,t0
+	
+	lw t0,Score
+	addi t0,t0,1000
+	sw t0,Score,t1	
+	
+	li a0,starRodID
+	li a1,1
+	li a2,288
+	slli a2,a2,16
+	addi a2,a2,176
+	mv a3,zero # Dir
+	jal BuildObject	
+NotStarRodAgain:
+	
 	mv t0,zero
+	sw t0,BossHP,t1
+	
+	j SkipBossHit
+	
 DontZeroBossHP:
 	sw t0,BossHP,t1
 	
@@ -1840,7 +1947,12 @@ SkipBossHit:
 	li a1,1 # quantidade do objeto
 	lw a2,4(s0)
 	mv a3,zero
+	
+	li t0,enemyFireID
 	mv a4,zero
+	bne t0,s4,NotEnemyFireHit # envia 1 pois hits de inimigos nao devem mata-los (sao apenas esteticos)
+	li a4,1
+NotEnemyFireHit:
 	jal BuildObject
 DontHitIce:
 

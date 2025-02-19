@@ -26,6 +26,23 @@ SkipSubBossDur:
 	addi t0,t0,-1
 	sw t0,BossIFrames,t1
 SkipSubBossIFrames:
+
+	la a0,stageTile100
+	li a1,144
+	slli a1,a1,16
+	addi a1,a1,80
+	mv a3,zero
+	mv a4,zero
+	jal Print
+	
+	la a0,stageTile101
+	li a1,144
+	slli a1,a1,16
+	addi a1,a1,96
+	mv a3,zero
+	mv a4,zero
+	jal Print
+	
 	
 EndCheckBoss:
 	lw ra,0(sp)
@@ -284,7 +301,7 @@ AppleAttack:
 GotApplePos:
 	li a0,enemyAppleID # id do objeto (maca)
 	li a1,1 # quantidade do objeto
-	li a2,240
+	li a2,208
 	slli a2,a2,16
 	add a2,a2,t2
 	mv a3,zero # Dir

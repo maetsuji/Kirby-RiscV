@@ -39,7 +39,7 @@ TitleKeyPress:
 	j FimTitleKP
 	
 FlipButton:
-	xori t2,t2,1
+	#xori t2,t2,1
 	sw t2,TitleControls,t0
 	
 	j FimTitleKP
@@ -47,7 +47,11 @@ FlipButton:
 PressButton:
 	bnez t2,FimTitleKP
 	
+	lh t0,StageID
+	bnez t0,RestartGame
 	j LoadHub # # # # # # # # # # # # #
+RestartGame:
+	j LoadTitle
 
 FimTitleKP:
 	ret
@@ -100,25 +104,19 @@ SpecialKeys:
 	li t0,'p'
   	beq t1,t0,EndGame
  	
-  	li t0,'1'
-  	beq t1,t0,SetPower0
+  	li t0,'q'
+  	beq t1,t0,DropPower
 	
-  	li t0,'2'
+  	li t0,'F'
   	beq t1,t0,SetPower1
   	
-  	li t0,'3'
+  	li t0,'G'
   	beq t1,t0,SetPower2
   	
-  	li t0,'4'
+  	li t0,'R'
   	beq t1,t0,SetPower3
   	
-  	li t0,'5'
-  	beq t1,t0,SetPower4
-  	
-  	li t0,'6'
-  	beq t1,t0,SetPower5
-  	
-  	li t0,'c'
+  	li t0,'C'
   	beq t1,t0,SetCompletion
 
 FimKeyPress:  	
@@ -184,8 +182,25 @@ EndGame:
 	#ecall				# metodo temporario de finalizacao do jogo
 
 #-----
-SetPower0:
+DropPower:
+	lw t0,PlayerPowState
+	li t1,2
+	beq t0,t1,BuildDropItem
+	li t1,3
+	beq t0,t1,BuildDropItem
+	j FimKeyPress
+BuildDropItem:
 	sw zero,PlayerPowState,t1
+
+	li a0,7 # id do objeto (estrela) ###
+	li a1,1 # quantidade do objeto
+	lw a2,PlayerPosX
+	li t0,0x20000
+	add a2,a2,t0
+	lw a3,PlayerLastDir
+	mv a4,zero
+	jal BuildObject
+	
 	j FimKeyPress
 
 SetPower1:
@@ -222,6 +237,9 @@ SetCompletion:
 	
 	li t0,1
 	sh t0,Completion,t1
+	
+	jal ClearObjects
+	
 	j FimKeyPress
 	
 SetSound: # a0 = duracao da nota, a1 = valor da nota, a2 = instrumento

@@ -10,11 +10,10 @@
 .eqv enemyIceID 10
 .eqv hitID 11
 .eqv starRodID 12
-.eqv menuBlock0 13
-.eqv menuBlock1 14
-.eqv menuBlock2 15
-.eqv menuBlock3 16
-.eqv bossBlock	17
+.eqv hubBlockWall 13
+.eqv hubBlockCeil 14
+.eqv hubDoor 15
+.eqv dropItemID 16
 
 .eqv waddleID 30
 .eqv hotHeadID 31
