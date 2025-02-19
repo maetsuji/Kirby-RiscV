@@ -100,9 +100,6 @@ DirectionKey:
 LockedPlayer:
 
 SpecialKeys:
-
-	li t0,'p'
-  	beq t1,t0,EndGame
  	
   	li t0,'q'
   	beq t1,t0,DropPower
@@ -118,6 +115,14 @@ SpecialKeys:
   	
   	li t0,'C'
   	beq t1,t0,SetCompletion
+  	
+  	li t0,'m'
+  	bne t0,t1,SkipGoToHub
+  	lw t0,StageID
+  	li t1,1
+  	beq t0,t1,SkipGoToHub
+  	j LoadHub
+SkipGoToHub:
 
 FimKeyPress:  	
 	lw ra,0(sp)			# pilha armazena apenas valor de retorno
@@ -177,16 +182,11 @@ DE1KeyPress:
 	j ReturnDE1KP
 
 #-----
-EndGame:
-	li a7,10
-	#ecall				# metodo temporario de finalizacao do jogo
-
-#-----
 DropPower:
 	lw t0,PlayerPowState
-	li t1,2
+	li t1,1
 	beq t0,t1,BuildDropItem
-	li t1,3
+	li t1,2
 	beq t0,t1,BuildDropItem
 	j FimKeyPress
 BuildDropItem:
